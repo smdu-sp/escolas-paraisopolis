@@ -1,0 +1,1 @@
+export { listaCompleta } from './lista-completa';
