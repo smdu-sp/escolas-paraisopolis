@@ -1,9 +1,8 @@
 'use client'
 
-import sisar from "@/public/logo.png"
-import { useTheme } from "next-themes";
 import { useEffect, useState } from 'react';
 import Image from "next/image";
+import { useTheme } from 'next-themes';
 
 export default function Logo() {
     const { theme, systemTheme } = useTheme();
@@ -15,18 +14,13 @@ export default function Logo() {
     }, []);
     
     if (!mounted) {
-        return <Image
-            width={1200}
-            height={1200}
-            src={"/public/logo.png"}
-            alt="SISAR LOGO"
-        />
+        return <div className="absolute inset-0 bg-muted h-full w-full object-cover" />
     }
 
     return <Image
         width={1200}
         height={1200}
-        src={sisar.src}
-        alt="SISAR LOGO"
+        src={tema === "dark" ? "/logo_claro.png" : "/logo_escuro.png"}
+        alt="LOGO PREFEITURA DE SÃO PAULO"
     />
 }

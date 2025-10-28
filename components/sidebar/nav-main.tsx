@@ -17,17 +17,16 @@ import {
 	SidebarMenuSub,
 	SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
-import { validaUsuario } from '@/services/usuarios';
-import { IUsuario } from '@/types/usuario';
 import { ForwardRefExoticComponent, RefAttributes } from 'react';
 import Link from '../link';
+import { validaUsuario } from '@/services/usuario';
+import { Usuario } from '@prisma/client';
 
 export async function NavMain() {
-	let usuario: IUsuario | null = null;
-	const { ok, data } = await validaUsuario();
-	if (ok && data) {
-		usuario = data as IUsuario;
-	}
+	let usuario: Usuario | null = null;
+	usuario = await validaUsuario();
+	if (!usuario) return null;
+	
 	interface IMenu {
 		icone: ForwardRefExoticComponent<
 			Omit<LucideProps, 'ref'> & RefAttributes<SVGSVGElement>

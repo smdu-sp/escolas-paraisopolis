@@ -10,7 +10,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@/components/ui/dialog';
-import * as usuario from '@/services/usuarios';
+import { atualizarUsuario } from '@/services/usuario';
 import { Check, Loader2, Trash2 } from 'lucide-react';
 import { useTransition } from 'react';
 import { toast } from 'sonner';
@@ -26,10 +26,10 @@ export default function ModalDelete({
 
 	async function handleDelete(id: string) {
 		const resp = status
-			? await usuario.autorizar(id)
-			: await usuario.desativar(id);
-		if (!resp.ok) {
-			toast.error('Algo deu errado', { description: resp.error });
+			? await atualizarUsuario(id, { status: true })
+			: await atualizarUsuario(id, { status: false });
+		if (!resp) {
+			toast.error('Algo deu errado');
 		} else {
 			toast.success(
 				status ? 'Usuário Ativado com sucesso' : 'Usuário Deletado com sucesso',

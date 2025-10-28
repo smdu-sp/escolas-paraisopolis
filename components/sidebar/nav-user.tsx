@@ -15,7 +15,7 @@ import {
 	SidebarMenuButton,
 	SidebarMenuItem,
 } from '@/components/ui/sidebar';
-import { auth } from '@/lib/auth/auth';
+import { auth } from '@/auth';
 import Link from 'next/link';
 import BtnSignOut from '../btn-signout';
 // import { useRouter } from "next/navigation";
@@ -43,7 +43,7 @@ export async function NavUser() {
 
 	return (
 		session &&
-		session.usuario && (
+		session.user && (
 			<SidebarMenu>
 				<SidebarMenuItem>
 					<DropdownMenu>
@@ -52,17 +52,17 @@ export async function NavUser() {
 								size='lg'
 								className='data-[state=open]:bg-sidebar-accent cursor-pointer data-[state=open]:text-sidebar-accent-foreground'>
 								<Avatar className='h-8 w-8 rounded-full aspect-square'>
-									<AvatarImage src={session.usuario.avatar} />
+									<AvatarImage src={session.user.avatar} />
 									<AvatarFallback className='rounded-full'>
 										{abreviaNome(
-											session.usuario.nomeSocial || session.usuario.nome,
+											session.user.nome,
 										)}
 									</AvatarFallback>
 								</Avatar>
 								<div className='grid flex-1 text-left text-sm leading-tight'>
 									<span className='truncate font-semibold'>
 										{reduzNome(
-											session.usuario.nomeSocial || session.usuario.nome,
+											session.user.nome,
 										)}
 									</span>
 								</div>
@@ -79,21 +79,21 @@ export async function NavUser() {
 								<Link href='perfil'>
 									<div className='flex items-center gap-2 px-1 py-1.5 text-left text-sm'>
 										<Avatar className='h-8 w-8 rounded-full'>
-											<AvatarImage src={session.usuario.avatar} />
+											<AvatarImage src={session.user.avatar} />
 											<AvatarFallback className='rounded-full'>
 												{abreviaNome(
-													session.usuario.nomeSocial || session.usuario.nome,
+													session.user.nome,
 												)}
 											</AvatarFallback>
 										</Avatar>
 										<div className='grid flex-1 text-left text-sm leading-tight'>
 											<span className='truncate font-semibold'>
 												{reduzNome(
-													session.usuario.nomeSocial || session.usuario.nome,
+													session.user.nome,
 												)}
 											</span>
 											<span className='truncate text-xs'>
-												{session.usuario.email}
+												{session.user.email}
 											</span>
 										</div>
 									</div>

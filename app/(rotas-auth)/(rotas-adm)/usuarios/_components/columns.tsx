@@ -2,13 +2,13 @@
 
 'use client';
 
-import { IUsuario } from '@/types/usuario';
 import { ColumnDef } from '@tanstack/react-table';
 import ModalUpdateCreate from './modal-update-create';
 import ModalDelete from './modal-delete';
 import { Badge } from '@/components/ui/badge';
+import { Usuario } from '@prisma/client';
 
-export const columns: ColumnDef<IUsuario>[] = [
+export const columns: ColumnDef<Usuario>[] = [
 	{
 		accessorKey: 'nome',
 		header: 'Nome',

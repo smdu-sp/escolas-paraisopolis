@@ -9,7 +9,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from '@/components/ui/dialog';
-import { IUsuario } from '@/types/usuario';
+import { Usuario } from '@prisma/client';
 import { Plus, SquarePen } from 'lucide-react';
 import FormUsuario from './form-usuario';
 
@@ -18,7 +18,7 @@ export default function ModalUpdateAndCreate({
 	user,
 }: {
 	isUpdating: boolean;
-	user?: Partial<IUsuario>;
+	user?: Partial<Usuario>;
 }) {
 	return (
 		<Dialog>

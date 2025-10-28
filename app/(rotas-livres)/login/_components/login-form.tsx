@@ -29,14 +29,13 @@ const formSchema = z.object({
 	login: z
 		.string()
 		.min(7, {
-			message: 'Login tem de ter 7 caracteres.',
-		})
-		.max(7, {
-			message: 'Login tem de ter 7 caracteres.',
+			message: 'Login tem de ter ao menos 7 caracteres.',
 		}),
-	senha: z.string().min(2, {
-		message: 'Campo senha não pode ser vazio.',
-	}),
+	senha: z
+		.string()
+		.min(2, {
+			message: 'Campo senha não pode ser vazio.',
+		}),
 });
 
 export function LoginForm() {
@@ -53,18 +52,26 @@ export function LoginForm() {
 	async function onSubmit({ login, senha }: z.infer<typeof formSchema>) {
 		try {
 			const resp = await signIn('credentials', {
-				login,
-				senha,
+				login: login as string,
+				senha: senha as string,
 				redirect: false,
 			});
-			console.log(resp);
-			if (resp?.ok) {
-				toast.success('Login realizado com sucesso.');
-				router.push('/')
-			} else {
-				console.log(resp?.error);
-				toast.error('Não foi possível realizar o login.');
+			if (!resp) toast.error('Não foi possível realizar o login.');
+			if (resp) {
+				console.log(resp);
+				if (resp.error) toast.error('Credenciais incorretas.');
+				else if (resp.ok) {
+					console.log(resp.ok);
+					toast.success('Login realizado com sucesso.');
+					router.push('/')
+				}
 			}
+			// if (resp && resp.error) toast.error('Credenciais inválidas.');
+			// if (resp && resp.ok) {
+			// 	console.log(resp.ok);
+			// 	toast.success('Login realizado com sucesso.');
+			// 	router.push('/')
+			// }
 		} catch (e) {
 			console.log(e);
 			toast.error('Não foi possível realizar o login.');

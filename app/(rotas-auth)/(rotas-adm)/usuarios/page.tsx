@@ -3,12 +3,12 @@
 import DataTable, { TableSkeleton } from '@/components/data-table';
 import { Filtros } from '@/components/filtros';
 import Pagination from '@/components/pagination';
-import { auth } from '@/lib/auth/auth';
-import * as usuario from '@/services/usuarios';
-import { IPaginadoUsuario, IUsuario } from '@/types/usuario';
+import { auth } from '@/auth';
 import { Suspense } from 'react';
 import { columns } from './_components/columns';
 import ModalUpdateAndCreate from './_components/modal-update-create';
+import { buscarUsuarios, IUsuarioPaginado } from '@/services/usuario';
+import { Usuario } from '@prisma/client';
 
 export default async function UsuariosSuspense({
 	searchParams,
@@ -28,31 +28,23 @@ async function Usuarios({
 	searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
 	let { pagina = 1, limite = 10, total = 0 } = await searchParams;
-	let ok = false;
 	const { busca = '', status = '', permissao = '' } = await searchParams;
-	let dados: IUsuario[] = [];
+	let dados: Usuario[] = [];
 
 	const session = await auth();
-	if (session && session.access_token) {
-		const response = await usuario.buscarTudo(
-			session.access_token || '',
+	if (session) {
+		const response = await buscarUsuarios(
 			+pagina,
 			+limite,
 			busca as string,
 			status as string,
 			permissao as string,
 		);
-		const { data } = response;
-		ok = response.ok;
-		if (ok) {
-			if (data) {
-				const paginado = data as IPaginadoUsuario;
-				pagina = paginado.pagina || 1;
-				limite = paginado.limite || 10;
-				total = paginado.total || 0;
-				dados = paginado.data || [];
-			}
-			const paginado = data as IPaginadoUsuario;
+		if (response) {
+			const paginado = response as IUsuarioPaginado;
+			pagina = paginado.pagina || 1;
+			limite = paginado.limite || 10;
+			total = paginado.total || 0;
 			dados = paginado.data || [];
 		}
 	}
@@ -76,15 +68,7 @@ async function Usuarios({
 		{
 			label: 'Administrador',
 			value: 'ADM',
-		},
-		{
-			label: 'Técnico',
-			value: 'TEC',
-		},
-		{
-			label: 'Usuário',
-			value: 'USR',
-		},
+		}
 	];
 
 	return (

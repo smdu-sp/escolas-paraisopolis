@@ -14,8 +14,8 @@ const myFont = localFont({
 });
 
 export const metadata: Metadata = {
-	title: 'SISAR',
-	description: 'SISAR',
+	title: 'Escolas Paraisópolis',
+	description: 'Mapa Interativo das Escolas de Paraisópolis',
 };
 
 export default function RootLayout({

@@ -16,7 +16,7 @@ export default function ToogleSidebarBtn() {
 			onClick={() => toggleSidebar()}>
 			<MiniLogo />
 			<div className='grid flex-1 text-left text-sm leading-tight'>
-				<span className='truncate font-bold text-sm '>SISAR</span>
+				<span className='truncate font-bold text-sm '>SMUL</span>
 			</div>
 			<ArrowLeftFromLineIcon />
 		</SidebarMenuButton>

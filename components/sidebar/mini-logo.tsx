@@ -2,14 +2,10 @@
 
 'use client';
 
-import miniLogo from '@/public/sis-icon.png';
-import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 
 export default function MiniLogo() {
-	const { theme, systemTheme } = useTheme();
-	const tema = theme === 'system' ? systemTheme : theme;
 	const [mounted, setMounted] = useState(false);
 
 	useEffect(() => {
@@ -27,8 +23,8 @@ export default function MiniLogo() {
 			<Image
 				width={1200}
 				height={1200}
-				src={miniLogo.src}
-				alt='SISAR'
+				src={"/sis-icon.png"}
+				alt='LOGO PREFEITURA DE SÃO PAULO'
 			/>
 		</div>
 	);

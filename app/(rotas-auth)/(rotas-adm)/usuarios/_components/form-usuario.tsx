@@ -2,6 +2,7 @@
 
 'use client';
 
+import { auth } from '@/auth';
 import { Button } from '@/components/ui/button';
 import { DialogClose } from '@/components/ui/dialog';
 import {
@@ -20,11 +21,10 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import * as usuario from '@/services/usuarios';
-import { IPermissao, IUsuario } from '@/types/usuario';
+import { atualizarUsuario, criarUsuario } from '@/services/usuario';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Permissao, Usuario } from '@prisma/client';
 import { ArrowRight, Loader2 } from 'lucide-react';
-import { useSession } from 'next-auth/react';
 import { useTransition } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -43,7 +43,7 @@ const formSchema = z.object({
 
 interface FormUsuarioProps {
 	isUpdating: boolean;
-	user?: Partial<IUsuario>;
+	user?: Partial<Usuario>;
 }
 
 export default function FormUsuario({ isUpdating, user }: FormUsuarioProps) {
@@ -66,23 +66,20 @@ export default function FormUsuario({ isUpdating, user }: FormUsuarioProps) {
 		},
 	});
 
-	const { data: session, update } = useSession();
-
 	async function onSubmit(values: z.infer<typeof formSchema>) {
-		const token = session?.access_token;
-		if (!token) {
+		const session = await auth();
+		if (!session) {
 			toast.error('Não autorizado');
 			return;
 		}
 		const { login } = values;
-		const resp = await usuario.buscarNovo(login, token);
-
-		if (resp.error) {
-			toast.error('Algo deu errado', { description: resp.error });
+		const resp = await fetch(`/api/ldap/buscar-por-login/${login}`);
+		if (resp.status !== 200) {
+			toast.error('Usuário não encontrado');
+			return;
 		}
-
-		if (resp.ok && resp.data) {
-			const usuario = resp.data as IUsuario;
+		const usuario = await resp.json();
+		if (usuario) {
 			toast.success('Usuário encontrado', { description: usuario.nome });
 			formUsuario.setValue('nome', usuario.nome);
 			formUsuario.setValue('email', usuario.email);
@@ -93,37 +90,25 @@ export default function FormUsuario({ isUpdating, user }: FormUsuarioProps) {
 	async function onSubmitUser(values: z.infer<typeof formSchemaUsuario>) {
 		startTransition(async () => {
 			if (isUpdating && user?.id) {
-				const resp = await usuario.atualizar(user?.id, {
-					permissao: values.permissao as unknown as IPermissao,
+				const resp = await atualizarUsuario(user?.id, {
+					permissao: values.permissao as unknown as Permissao,
 				});
-
-				if (resp.error) {
-					toast.error('Algo deu errado', { description: resp.error });
-				}
-
-				if (resp.ok) {
-					await update({
-						...session,
-						usuario: {
-							...session?.usuario,
-							permissao: IPermissao,
-						},
-					});
+				if (!resp)
+					toast.error('Algo deu errado');
+				if (resp) {
 					toast.success('Usuário Atualizado', { description: resp.status });
 					document.getElementById('close-dialog-voltar')?.click();
 				}
 			} else {
 				const { email, login, nome, permissao } = values;
-				const resp = await usuario.criar({
+				const resp = await criarUsuario({
 					email,
 					login,
 					nome,
-					permissao: permissao as unknown as IPermissao,
+					permissao: permissao as unknown as Permissao,
 				});
-				if (resp.error) {
-					toast.error('Algo deu errado', { description: resp.error });
-				}
-				if (resp.ok) {
+				if (!resp) toast.error('Algo deu errado');
+				if (resp) {
 					toast.success('Usuário Criado', { description: resp.status });
 					document.getElementById('close-dialog-voltar')?.click();
 				}

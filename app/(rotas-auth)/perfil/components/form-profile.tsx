@@ -11,9 +11,9 @@ import {
 	FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { atualizar } from '@/services/usuarios';
-import { IUsuario } from '@/types/usuario';
+import { atualizarUsuario } from '@/services/usuario';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Permissao, Usuario } from '@prisma/client';
 import { RefreshCcw } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useTransition } from 'react';
@@ -22,8 +22,6 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 
 const formSchema = z.object({
-	avatar: z.string().optional(),
-	nomeSocial: z.string().min(2).max(50),
 	nome: z.string().min(2).max(50),
 	login: z.string(),
 	email: z.string().email(),
@@ -31,7 +29,7 @@ const formSchema = z.object({
 });
 
 interface FormProfileProps {
-	user: Partial<IUsuario>;
+	user: Partial<Usuario>;
 	id: string;
 }
 
@@ -42,33 +40,38 @@ export default function FormProfile({ user, id }: FormProfileProps) {
 	const form = useForm<z.infer<typeof formSchema>>({
 		resolver: zodResolver(formSchema),
 		defaultValues: {
-			nomeSocial: user.nomeSocial || '',
-			avatar: user.avatar || '',
 			email: user.email || '',
 			nome: user.nome || '',
 			login: user.login || '',
 			permissao:
-				(user.permissao as unknown as 'DEV' | 'TEC' | 'ADM' | 'USR') ?? 'USR',
+				(user.permissao as unknown as Permissao) ?? 'USR',
 		},
 	});
 
 	function onSubmit(values: z.infer<typeof formSchema>) {
 		startTransition(async () => {
-			const { nomeSocial } = values;
+			const data: Partial<Usuario> = {
+				nome: values.nome,
+				login: values.login,
+				email: values.email,
+				permissao: values.permissao as Permissao,
+			};
 			try {
-				const resp = await atualizar(id, { nomeSocial: nomeSocial });
-
-				if (!resp.ok) {
+				const resp = await atualizarUsuario(id, data);
+				if (!resp) {
 					toast.error('Algo deu errado');
 				} else {
-					if (session?.usuario && resp.data) {
-						const dataResp = resp.data as IUsuario;
+					if (session?.user && resp) {	
+						const dataResp = resp as Usuario;
 						// Você precisará ajustar isso de acordo com a estrutura da sua sessão e da resposta da API
 						const updateSession = await update({
 							...session,
-							usuario: {
-								...session?.usuario,
-								nomeSocial: dataResp.nomeSocial,
+							user: {
+								...session?.user,
+								nome: dataResp.nome,
+								email: dataResp.email,
+								login: dataResp.login,
+								permissao: dataResp.permissao,
 							},
 						});
 						console.log('Sessão atualizada:', updateSession); // Para depuração
@@ -90,22 +93,6 @@ export default function FormProfile({ user, id }: FormProfileProps) {
 			<form
 				onSubmit={form.handleSubmit(onSubmit)}
 				className='space-y-5'>
-				<FormField
-					control={form.control}
-					name='nomeSocial'
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Nome de usuário</FormLabel>
-							<FormControl>
-								<Input
-									placeholder='Nome Social'
-									{...field}
-								/>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
 				<FormField
 					control={form.control}
 					name='nome'
@@ -157,12 +144,12 @@ export default function FormProfile({ user, id }: FormProfileProps) {
 						</FormItem>
 					)}
 				/>
-				<Button
+				{false && <Button
 					disabled={isPending}
 					className='w-full'>
 					Atualizar{' '}
 					{isPending ? <RefreshCcw className='animate-spin' /> : <RefreshCcw />}
-				</Button>
+				</Button>}
 			</form>
 		</Form>
 	);

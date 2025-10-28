@@ -1,0 +1,119 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider  = "mysql"
+    url       = env("DATABASE_URL")
+}
+
+enum Permissao {
+    DEV
+    ADM
+}
+
+model Usuario {
+    id                     String                 @id @default(uuid())
+    nome                   String
+    email                  String                 @unique
+    login                  String                 @unique
+    permissao              Permissao              @default(ADM)
+    avatar                 String?
+    status                 Boolean                @default(true)
+    criadoEm               DateTime               @default(now())
+    atualizadoEm           DateTime               @default(now()) @updatedAt
+
+    @@map("usuarios")
+}
+
+model Escola {
+    id          String  @id @default(uuid())
+    nome        String
+    endereco    String
+    latitude    Decimal @db.Decimal(11, 8)
+    longitude   Decimal @db.Decimal(11, 8)
+
+    cadastros   Cadastro[]
+
+    @@map("escolas")
+}
+
+model Aluno {
+    id          String      @id @default(uuid())
+    dataNasc    DateTime    @db.Date
+    cadastroId  String
+
+    cadastro    Cadastro    @relation(fields: [cadastroId], references: [id])
+
+    @@map("alunos")
+}
+
+model PontoInteresse {
+    id          String  @id @default(uuid())
+    latitude    Decimal @db.Decimal(11, 8)
+    longitude   Decimal @db.Decimal(11, 8)
+    endereco    String
+
+    cadastros   Cadastro[]
+
+    @@map("pontos_interesse")
+}
+
+model PontoSugerido {
+    id          String      @id @default(uuid())
+    latitude    Decimal     @db.Decimal(11, 8)
+    longitude   Decimal     @db.Decimal(11, 8)
+    cadastroId  String
+
+    cadastro    Cadastro    @relation(fields: [cadastroId], references: [id])
+
+    @@map("pontos_sugeridos")
+}
+
+enum ApontamentoTipo {
+    PROBLEMA
+    SUGESTAO
+}
+
+model Apontamento {
+    id          String          @id @default(uuid())
+    descricao   String          @db.Text
+    cadastroId  String
+    tipo        ApontamentoTipo
+
+    cadastro    Cadastro        @relation(fields: [cadastroId], references: [id])
+
+    @@map("apontamentos")
+}
+
+model LocalReuniao {
+    id          String          @id @default(uuid())
+    latitude    Decimal         @db.Decimal(11, 8)
+    longitude   Decimal         @db.Decimal(11, 8)
+    cadastroId  String
+
+    cadastro    Cadastro        @relation(fields: [cadastroId], references: [id])
+
+    @@map("locais_reuniao")
+}
+
+model Cadastro {
+    id                  String              @id @default(uuid())
+    escolaId            String
+    transporteIda       String
+    acompanhanteIda     String
+    transporteVolta     String
+    acompanhanteVolta   String
+    casaLatitude        Decimal             @db.Decimal(11, 8)
+    casaLongitude       Decimal             @db.Decimal(11, 8)
+    sensacao            String?             @db.Text
+
+    escola              Escola              @relation(fields: [escolaId], references: [id])
+    alunos              Aluno[]
+    pontosInteresse     PontoInteresse[]
+    pontosSugeridos     PontoSugerido[]
+    apontamentos        Apontamento[]
+    locaisReuniao       LocalReuniao[]
+
+    @@map("cadastros")
+}
