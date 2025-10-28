@@ -97,7 +97,7 @@ export default function FormCaminhos() {
 
     async function handleSaveForm() {
         toast.success("Formulário salvo com sucesso!");
-        setStep(15);
+        setStep(steps);
     }
 
     function checkNewStep(newStep: number) {
