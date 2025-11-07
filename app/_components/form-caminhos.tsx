@@ -61,7 +61,7 @@ export default function FormCaminhos() {
         lat: -46.7268192,
         lng: -23.6157664
     });
-    const [resposta, setResposta] = useLocalStorage<Questionario>('form-caminhos-data', {
+    const respostaVazia = {
         escola: 1,
         alunos: [new Date()],
         transporteIda: [],
@@ -87,7 +87,8 @@ export default function FormCaminhos() {
         problemas: [],
         sugestoes: [],
         temReuniao: false,
-    });
+    }
+    const [resposta, setResposta] = useLocalStorage<Questionario>('form-caminhos-data', respostaVazia);
     
     useEffect(() => {
         setMounted(true);
@@ -98,6 +99,8 @@ export default function FormCaminhos() {
     async function handleSaveForm() {
         toast.success("Formulário salvo com sucesso!");
         setStep(steps);
+        setResposta(respostaVazia)
+        setConcluido(true);
     }
 
     function checkNewStep(newStep: number) {
@@ -132,10 +135,11 @@ export default function FormCaminhos() {
     return (<>
         <MapComponent
             center={[center?.lat || 0, center?.lng || 0]}
+            markers={escolas}
         />
-        {step === 7 && <SelecionarCasa handleStepBack={handleStepBack} handleStepForward={handleStepForward} />}
-        {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} />}
-        {step === 14 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} />}
+        {step === 7 && <SelecionarCasa handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
+        {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
+        {step === 14 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {!mapSteps.includes(step) && <div className="relative h-full w-full bg-black/50 z-49">
             <Card className={`absolute bottom-0 md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 w-full md:max-w-4xl shadow-md rounded-none md:rounded-2xl md:h-fit ${step > 0 ? 'h-full' : 'h-fit'} flex justify-between`}>
                 {step > 0 && <CardHeader className="flex gap-0">
@@ -147,7 +151,7 @@ export default function FormCaminhos() {
                             width={900}
                             height={290}
                         />
-                        <Button variant="link" className="!px-0 max-sm:mt-4 max-sm:!text-lg md:hidden" onClick={() => handleStepBack()}>
+                        <Button variant="link" className="!px-0 max-sm:!text-lg md:hidden dark:text-foreground" onClick={() => handleStepBack()}>
                             <Undo2 /> Voltar
                         </Button>
                     </CardTitle>
@@ -168,10 +172,10 @@ export default function FormCaminhos() {
                     {step === 11 && <Problemas resposta={resposta} setResposta={setResposta} />}
                     {step === 12 && <Sugestoes resposta={resposta} setResposta={setResposta} />}
                     {step === 13 && <ReuniaoPrevia resposta={resposta} setResposta={setResposta} />}
-                    {step === 15 && <Agradecimento resposta={resposta} setResposta={setResposta} />}
+                    {step === 15 && <Agradecimento />}
                 </CardContent>
                 <CardFooter className={`${step > 0 ? 'md:justify-between' : 'flex justify-end'} max-sm:flex-col max-sm:gap-2`}>
-                    {step > 0 && <Button variant="outline" className="hidden md:flex" onClick={() => handleStepBack()}>
+                    {step > 0 && <Button variant="outline" className="hidden md:flex dark:text-foreground" onClick={() => handleStepBack()}>
                         <Undo2 /> Voltar
                     </Button>}
                     {![13, 15].includes(step) && <Button className="w-full md:w-fit" onClick={() => handleStepForward()}>{step === 0 ? 'Iniciar questionário' : [6, 8].includes(step) ? 'Selecionar' : 'Próxima pergunta'}</Button>}
@@ -636,21 +640,32 @@ const PontoPartida = () => {
 interface MapStepProps {
     handleStepBack: () => void;
     handleStepForward: () => void;
+    mounted: boolean;
+    currentTheme?: string;
+    progressValue: number;
 }
 
-const SelecionarCasa = ({ handleStepBack, handleStepForward }: MapStepProps) => {
+const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue }: MapStepProps ) => {
     return (
         <>
             <div className="absolute z-50 md:p-1 md:mt-20 w-full">
                 <Card className="rounded-none md:rounded-lg w-full">
-                    <CardHeader>
-                        <CardTitle className="text-2xl font-semibold">
-                            <Button variant="link" className="!px-0 max-sm:!text-lg" onClick={() => handleStepBack()}>
+                    <CardHeader className="flex gap-0">
+                        <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
+                            <Image
+                                src={mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}
+                                alt="Prefeitura de São Paulo"
+                                className="w-32 md:hidden"
+                                width={900}
+                                height={290}
+                            />
+                            <Button variant="link" className="!px-0 max-sm:!text-lg dark:text-foreground" onClick={() => handleStepBack()}>
                                 <Undo2 /> Voltar
                             </Button>
                         </CardTitle>
-                        <CardDescription className="font-semibold text-foreground">
-                            Clique Para Identificar no mapa onde fica sua casa
+                        <CardDescription className="flex flex-col gap-4">
+                            <Progress value={progressValue} className="w-full h-2 bg-gray-200 rounded-full" />
+                            <p className="text-foreground font-semibold">Clique Para Identificar no mapa onde fica sua casa</p>
                         </CardDescription>
                     </CardHeader>
                 </Card>
@@ -679,19 +694,27 @@ const PontosReferencia = () => {
     )
 }
 
-const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward }: MapStepProps) => {
+const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue }: MapStepProps) => {
     return (
         <>
             <div className="absolute z-50 md:p-1 md:mt-20 w-full">
                 <Card className="rounded-none md:rounded-lg w-full">
-                    <CardHeader>
-                        <CardTitle className="text-2xl font-semibold">
-                            <Button variant="link" className="!px-0 max-sm:!text-lg" onClick={() => handleStepBack()}>
+                    <CardHeader className="flex gap-0">
+                        <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
+                            <Image
+                                src={mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}
+                                alt="Prefeitura de São Paulo"
+                                className="w-32 md:hidden"
+                                width={900}
+                                height={290}
+                            />
+                            <Button variant="link" className="!px-0 max-sm:!text-lg dark:text-foreground" onClick={() => handleStepBack()}>
                                 <Undo2 /> Voltar
                             </Button>
                         </CardTitle>
-                        <CardDescription className="font-semibold text-foreground">
-                            Clique para identificar os pontos de referência no caminho até a escola
+                        <CardDescription className="flex flex-col gap-4">
+                            <Progress value={progressValue} className="w-full h-2 bg-gray-200 rounded-full" />
+                            <p className="text-foreground font-semibold">Clique para identificar os pontos de referência no caminho até a escola</p>
                         </CardDescription>
                     </CardHeader>
                 </Card>
@@ -1194,7 +1217,7 @@ const ReuniaoPrevia = ({resposta, setResposta}: {resposta: Questionario, setResp
     )
 }
 
-const Agradecimento = ({resposta, setResposta}: {resposta: Questionario, setResposta: (resposta: Questionario) => void}) => {
+const Agradecimento = () => {
     return (
         <>
             <div className="flex flex-col space-y-1">
