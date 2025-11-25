@@ -68,22 +68,28 @@ export default function FormCaminhos() {
         transporteVolta: [],
         acompanhantes: [],
         referencias: [],
-        sentimentos: [{
-            parametro: 'Opção 1',
-            valor: 5,
-        }, {
-            parametro: 'Opção 2',
-            valor: 5,
-        }, {
-            parametro: 'Opção 3',
-            valor: 5,
-        }, {
-            parametro: 'Opção 4',
-            valor: 5,
-        }, {
-            parametro: 'Opção 5',
-            valor: 5,
-        }],
+        sentimentos: [
+            {
+                parametro: 'Ruas e calçadas',
+                valor: 5,
+            },
+            {
+                parametro: 'Lixo',
+                valor: 5,
+            },
+            {
+                parametro: 'Esgoto',
+                valor: 5,
+            },
+            {
+                parametro: 'Segurança',
+                valor: 5,
+            },
+            {
+                parametro: 'Veículos em alta velocidade',
+                valor: 5,
+            }
+        ],
         problemas: [],
         sugestoes: [],
         temReuniao: false,
@@ -547,9 +553,9 @@ const TransporteVolta = ({ resposta, setResposta }: StepsProps) => {
 }
 
 const acompanhantes = [
-    "Opção 1",
-    "Opção 2",
-    "Opção 3"
+    "Mãe",
+    "Pai",
+    "Avô/Avó",
 ]
 
 const Acompanhantes = ({ resposta, setResposta }: StepsProps) => {
@@ -730,23 +736,23 @@ const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted
 
 const parametrosSentimentos = [
     {
-        parametro: 'Opção 1',
+        parametro: 'Ruas e calçadas',
         valor: 5,
     },
     {
-        parametro: 'Opção 2',
+        parametro: 'Lixo',
         valor: 5,
     },
     {
-        parametro: 'Opção 3',
+        parametro: 'Esgoto',
         valor: 5,
     },
     {
-        parametro: 'Opção 4',
+        parametro: 'Segurança',
         valor: 5,
     },
     {
-        parametro: 'Opção 5',
+        parametro: 'Veículos em alta velocidade',
         valor: 5,
     },
 ]
@@ -780,11 +786,11 @@ const Sentimentos = ({ resposta, setResposta }: StepsProps) => {
                     <div className="text-foreground font-semibold flex items-center justify-center">4</div>
                     <div className="text-foreground font-semibold flex items-center justify-center">5</div>
                 </div>
-                {resposta.sentimentos.map((sentimento, index) => (
+                {parametrosSentimentos.map((sentimento, index) => (
                     <RadioGroup 
                         key={`${sentimento.parametro}-${index}`}
                         className="grid grid-cols-7" 
-                        value={sentimento.valor.toString()}
+                        value={resposta.sentimentos[index].valor.toString()}
                         onValueChange={(valor) => handleSentimentoChange(sentimento.parametro, valor)}
                     >
                         <div className="text-foreground text-xs font-semibold col-span-2">{sentimento.parametro}</div>
@@ -801,21 +807,20 @@ const Sentimentos = ({ resposta, setResposta }: StepsProps) => {
 }
 
 const problemas = [
-    "Opção 1",
-    "Opção 2",
-    "Opção 3",
-    "Opção 4",
-    "Opção 5",
-    "Opção 6"
+    "Esgoto",
+    "Lixo",
+    "Calçadas estreitas ou inexistentes",
+    "Carros e motos em alta velocidade",
+    "Falta de segurança",
+    "Falta de áreas verdes"
 ]
 
 const sugestoes = [
-    "Opção 1",
-    "Opção 2",
-    "Opção 3",
-    "Opção 4",
-    "Opção 5",
-    "Opção 6"
+    "Mais espaço para caminhar",
+    "Mais áreas verdes",
+    "Praças",
+    "Espaços para brincar",
+    "Iluminação melhor",
 ]
 
 const Problemas = ({ resposta, setResposta }: StepsProps) => {
