@@ -79,12 +79,13 @@ export default function MapComponent({
   const [selectedName, setSelectedName] = useState<string>('');
 
   const createMarkerStyle = (type: MapMarker['type'], currentTheme?: string, title?: string) => {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     const pins = {
-      school: "/escola_pin.png",
-      house: "/casa_pin.png",
-      default: "/default_pin.png",
-      selected: "/selected_pin.png",
-      school_selected: hasSelectedEscolaPin ? "/selected_escola_pin.png" : "/selected_pin.png",
+      school: `${basePath}/escola_pin.png`,
+      house: `${basePath}/casa_pin.png`,
+      default: `${basePath}/default_pin.png`,
+      selected: `${basePath}/selected_pin.png`,
+      school_selected: hasSelectedEscolaPin ? `${basePath}/selected_escola_pin.png` : `${basePath}/selected_pin.png`,
     } as const;
     const style = new Style({
       image: new Icon({
@@ -117,7 +118,7 @@ export default function MapComponent({
   };
   useEffect(() => {
     // Verificar se o asset selected_escola_pin.png existe; usar fallback caso contrário
-    fetch('/selected_escola_pin.png', { method: 'HEAD' })
+    fetch(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/selected_escola_pin.png`, { method: 'HEAD' })
       .then(r => setHasSelectedEscolaPin(r.ok))
       .catch(() => setHasSelectedEscolaPin(false));
 
@@ -226,8 +227,10 @@ export default function MapComponent({
         markersLayer,
         ...(
           geojsonUrls.map((url) => {
+            const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+            const resolvedUrl = url.startsWith('/') ? `${basePath}${url}` : url;
             const source = new VectorSource({
-              url,
+              url: resolvedUrl,
               format: new GeoJSON({ dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' })
             });
             const style = new Style({
@@ -268,7 +271,9 @@ export default function MapComponent({
     kmzLayersRef.current = [];
     kmzUrls.forEach(async (url) => {
       try {
-        const res = await fetch(url);
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+        const resolvedUrl = url.startsWith('/') ? `${basePath}${url}` : url;
+        const res = await fetch(resolvedUrl);
         if (!res.ok) return;
         const buf = await res.arrayBuffer();
         const zip = await new JSZip().loadAsync(buf);
@@ -306,8 +311,9 @@ export default function MapComponent({
                 coordKey = `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
               } catch {}
               const isSelected = isFlagSelected || selectedKmzRefsRef.current.has(coordKey);
+              const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
               return new Style({
-                image: new Icon({ src: isSelected ? '/selected_pin.png' : '/default_pin.png', scale: 0.6, anchor: [0.5, 1], anchorXUnits: 'fraction', anchorYUnits: 'fraction' }),
+                image: new Icon({ src: isSelected ? `${basePath}/selected_pin.png` : `${basePath}/default_pin.png`, scale: 0.6, anchor: [0.5, 1], anchorXUnits: 'fraction', anchorYUnits: 'fraction' }),
                 text: new Text({
                   text: nome,
                   font: '12px Inter, sans-serif',

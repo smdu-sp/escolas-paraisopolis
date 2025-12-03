@@ -18,8 +18,8 @@ export default async function RotasAuth({
 }: {
 	children: React.ReactNode;
 }) {
-	const session = await auth();
-	if (!session) redirect('/login');
+    const session = await auth();
+    if (!session) redirect(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/login`);
 	return (
 		<div className='relative w-full bg-muted/50 dark:bg-background '>
 			<ModeToggle className='absolute top-4 right-4 z-50' />

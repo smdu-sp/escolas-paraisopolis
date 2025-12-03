@@ -9,7 +9,8 @@ export default function KmzTestePage() {
   const [value, setValue] = useState<string>("")
 
   useEffect(() => {
-    fetch('/api/kmz/list')
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
+    fetch(`${basePath}/api/kmz/list`)
       .then(r => r.json())
       .then((list: string[]) => {
         const allow = new Set(['SIRGAS_SHP_distrito.kmz','Locais_oficina.kmz'])

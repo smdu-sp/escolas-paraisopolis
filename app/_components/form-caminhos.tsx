@@ -112,8 +112,9 @@ export default function FormCaminhos() {
     const kmzUrls = (process.env.NEXT_PUBLIC_KMZ_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
     const [kmzAutoUrls, setKmzAutoUrls] = useState<string[]>([]);
     useEffect(() => {
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
         if ([7,9,14].includes(step) && kmzAutoUrls.length === 0) {
-            fetch('/api/kmz/list').then(r => r.json()).then((list) => setKmzAutoUrls(list || [])).catch(() => {});
+            fetch(`${basePath}/api/kmz/list`).then(r => r.json()).then((list) => setKmzAutoUrls(list || [])).catch(() => {});
         }
     }, [step]);
     
@@ -121,6 +122,7 @@ export default function FormCaminhos() {
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     async function handleSaveForm() {
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
         const escolaSel = escolas.find((e) => +e.id === resposta.escola);
         const payload = {
             escola: resposta.escola,
@@ -149,7 +151,7 @@ export default function FormCaminhos() {
             temReuniao: !!resposta.temReuniao,
         };
         try {
-            const resp = await fetch('/api/resposta', {
+            const resp = await fetch(`${basePath}/api/resposta`, {
                 method: 'POST',
                 headers: { 'content-type': 'application/json' },
                 body: JSON.stringify(payload),

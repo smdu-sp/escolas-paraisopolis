@@ -17,9 +17,9 @@ import { meuUsuario } from '@/services/usuario';
 export default async function Perfil() {
 	const session = await auth();
 
-	if (!session) {
-		redirect('/login');
-	}
+  if (!session) {
+    redirect(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/login`);
+  }
 
 	const usuario = await meuUsuario(session?.user.id);
 	if (!usuario) {
