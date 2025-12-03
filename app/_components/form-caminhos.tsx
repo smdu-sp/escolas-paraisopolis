@@ -118,10 +118,51 @@ export default function FormCaminhos() {
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     async function handleSaveForm() {
-        toast.success("Formulário salvo com sucesso!");
-        setStep(steps);
-        setResposta(respostaVazia)
-        setConcluido(true);
+        const escolaSel = escolas.find((e) => +e.id === resposta.escola);
+        const payload = {
+            escola: resposta.escola,
+            escolaInfo: escolaSel ? {
+                nome: escolaSel.title || String(resposta.escola),
+                endereco: escolaSel.description || undefined,
+                lat: escolaSel.coordinates[1],
+                lng: escolaSel.coordinates[0],
+            } : undefined,
+            alunos: (resposta.alunos || []).map((d) => {
+                const dt = d instanceof Date ? d : new Date(d);
+                const ano = dt.getFullYear();
+                const mes = String(dt.getMonth() + 1).padStart(2, '0');
+                const dia = String(dt.getDate()).padStart(2, '0');
+                return `${ano}-${mes}-${dia}`;
+            }),
+            transporteIda: resposta.transporteIda || [],
+            transporteVolta: resposta.transporteVolta || [],
+            acompanhantes: resposta.acompanhantes || [],
+            partida: resposta.partida,
+            referencias: resposta.referencias || [],
+            sentimentos: resposta.sentimentos || [],
+            problemas: resposta.problemas || [],
+            sugestoes: resposta.sugestoes || [],
+            reuniao: resposta.reuniao,
+            temReuniao: !!resposta.temReuniao,
+        };
+        try {
+            const resp = await fetch('/api/resposta', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            const json = await resp.json().catch(() => ({}));
+            if (resp.ok && json?.ok) {
+                toast.success('Formulário enviado com sucesso');
+                setStep(steps);
+                setResposta(respostaVazia);
+                setConcluido(true);
+            } else {
+                toast.error('Falha ao enviar formulário');
+            }
+        } catch {
+            toast.error('Erro ao enviar formulário');
+        }
     }
 
     function checkNewStep(newStep: number) {
@@ -245,9 +286,13 @@ export default function FormCaminhos() {
                             width={900}
                             height={290}
                         />
-                        <Button variant="link" className="!px-0 max-sm:!text-lg md:hidden dark:text-foreground" onClick={() => handleStepBack()}>
-                            <Undo2 /> Voltar
-                        </Button>
+                        {step !== 15 ? (
+                            <Button variant="link" className="!px-0 max-sm:!text-lg md:hidden dark:text-foreground" onClick={() => handleStepBack()}>
+                                <Undo2 /> Voltar
+                            </Button>
+                        ) : (
+                            <div className="md:hidden h-9" />
+                        )}
                     </CardTitle>
                     <CardDescription>
                         <Progress value={progressValue} className="w-full h-2 bg-gray-200 rounded-full" />
@@ -269,7 +314,7 @@ export default function FormCaminhos() {
                     {step === 15 && <Agradecimento />}
                 </CardContent>
                 <CardFooter className={`${step > 0 ? 'md:justify-between' : 'flex justify-end'} max-sm:flex-col max-sm:gap-2`}>
-                    {step > 0 && <Button variant="outline" className="hidden md:flex dark:text-foreground" onClick={() => handleStepBack()}>
+                    {(step > 0 && step !== 15) && <Button variant="outline" className="hidden md:flex dark:text-foreground" onClick={() => handleStepBack()}>
                         <Undo2 /> Voltar
                     </Button>}
                     {![13, 15].includes(step) && (
