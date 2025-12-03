@@ -9,9 +9,9 @@ import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 
-import { Style, Icon } from 'ol/style';
+import { Style, Icon, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style';
 import OSM from 'ol/source/OSM';
-import { fromLonLat } from 'ol/proj';
+import { fromLonLat, toLonLat } from 'ol/proj';
 import { defaults as defaultControls, Attribution } from 'ol/control';
 import 'ol/ol.css';
 import { Button } from './ui/button';
@@ -20,11 +20,15 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Plus, Minus, Sun, Moon } from 'lucide-react';
 import { useTheme } from "next-themes";
+import TileWMS from 'ol/source/TileWMS';
+import GeoJSON from 'ol/format/GeoJSON';
+import KML from 'ol/format/KML';
+import JSZip from 'jszip';
 
 export interface MapMarker {
   id: string;
   coordinates: [number, number] | any; // [longitude, latitude]
-  type: 'school' | 'house' | 'default';
+  type: 'school' | 'house' | 'default' | 'selected';
   title?: string;
   description?: string;
 }
@@ -34,6 +38,13 @@ interface MapComponentProps {
   zoom?: number;
   className?: string;
   markers?: MapMarker[];
+  onEmptyClick?: (coordinates: [number, number]) => void;
+  geojsonUrls?: string[];
+  wmsLayers?: { url: string; params: Record<string, string>; serverType?: 'qgis' | 'geoserver' }[];
+  kmzUrls?: string[];
+  enableReferenceSelection?: boolean;
+  onSelectReference?: (coordinates: [number, number]) => void;
+  singleSelection?: boolean;
 }
 
 function offsetCoordinates(coordinates: [number, number]): [number, number] {
@@ -47,22 +58,34 @@ export default function MapComponent({
   center = [-46.7268192, -23.6157664],
   zoom = 15,
   className = '',
-  markers = []
+  markers = [],
+  onEmptyClick,
+  geojsonUrls = [],
+  wmsLayers = [],
+  kmzUrls = [],
+  enableReferenceSelection = false,
+  onSelectReference,
+  singleSelection = false
 }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<Map | null>(null);
   const tileLayerRef = useRef<TileLayer<any> | null>(null);
+  const markersLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const isMobile = useIsMobile();
   const { theme } = useTheme();
+  const selectedKmzRefsRef = useRef<Set<string>>(new Set());
+  const kmzLayersRef = useRef<VectorLayer<VectorSource>[]>([]);
+  const lastClickedFeatureRef = useRef<Feature | null>(null);
 
   const createMarkerStyle = (type: MapMarker['type'], currentTheme?: string) => {
     const pins = {
       school: "/escola_pin.png",
       house: "/casa_pin.png",
       default: "/default_pin.png",
+      selected: "/selected_pin.png",
     }
     return new Style({
       image: new Icon({
@@ -146,9 +169,13 @@ export default function MapComponent({
     const markersLayer = new VectorLayer({
       source: markersSource,
     });
+    markersLayerRef.current = markersLayer;
+    markersLayer.setZIndex(40);
 
     markers.forEach((marker) => {
-      const correctedCoords = offsetCoordinates(marker.coordinates);
+      const correctedCoords = marker.type === 'house' 
+        ? marker.coordinates 
+        : offsetCoordinates(marker.coordinates);
       
       const feature = new Feature({
         geometry: new Point(fromLonLat(correctedCoords)),
@@ -164,6 +191,7 @@ export default function MapComponent({
 
     const tileLayer = createTileLayer();
     tileLayerRef.current = tileLayer;
+    tileLayer.setZIndex(0);
 
     const map = new Map({
       target: mapRef.current,
@@ -175,30 +203,155 @@ export default function MapComponent({
       layers: [
         tileLayer,
         markersLayer,
+        ...(
+          geojsonUrls.map((url) => {
+            const source = new VectorSource({
+              url,
+              format: new GeoJSON({ dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' })
+            });
+            const style = new Style({
+              image: new CircleStyle({
+                radius: 5,
+                fill: new Fill({ color: '#10b981' }),
+                stroke: new Stroke({ color: '#064e3b', width: 1 })
+              }),
+              stroke: new Stroke({ color: '#10b981', width: 2 }),
+              fill: new Fill({ color: 'rgba(16, 185, 129, 0.15)' })
+            });
+            const layer = new VectorLayer({ source });
+            layer.setStyle(style);
+            layer.setZIndex(25);
+            return layer;
+          })
+        ),
+        ...(
+          wmsLayers.map((wms) => {
+            const layer = new TileLayer({
+              source: new TileWMS({
+                url: wms.url,
+                params: wms.params,
+                serverType: wms.serverType || 'qgis'
+              })
+            });
+            layer.setZIndex(5);
+            return layer;
+          })
+        )
       ],
       view: new View({
-          center: fromLonLat(offsetCoordinates(center)),
+          center: fromLonLat(center),
           zoom: zoom,
         }),
     });
 
-    // Add click event to show dialog
+    kmzLayersRef.current = [];
+    kmzUrls.forEach(async (url) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const buf = await res.arrayBuffer();
+        const zip = await new JSZip().loadAsync(buf);
+        const kmlEntryName = Object.keys(zip.files).find(n => n.toLowerCase().endsWith('.kml'));
+        if (!kmlEntryName) return;
+        const kmlText = await zip.file(kmlEntryName)!.async('string');
+        const format = new KML({ extractStyles: false });
+        const features = format.readFeatures(kmlText, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
+        const source = new VectorSource({ features });
+        const layer = new VectorLayer({ source });
+        const fileName = decodeURIComponent(url.split('/').pop() || '').replace(/\.kmz$/i, '');
+        (layer as any).fileName = fileName;
+        if (fileName === 'SIRGAS_SHP_distrito') {
+          layer.setZIndex(10);
+        } else if (fileName === 'Locais_oficina') {
+          layer.setZIndex(30);
+          (layer as any).setDeclutter?.(true);
+        } else {
+          layer.setZIndex(20);
+        }
+        layer.setStyle((feature) => {
+          const type = feature.getGeometry()?.getType();
+          const isDistrito = fileName === 'SIRGAS_SHP_distrito';
+          const isLocais = fileName === 'Locais_oficina';
+          if (type === 'Point' || type === 'MultiPoint') {
+            if (isLocais) {
+              const props = (feature as any).getProperties ? (feature as any).getProperties() : {};
+              const keys = Object.keys(props).filter((k: string) => k !== 'geometry');
+              const firstText = keys.map((k: string) => props[k]).find((v: any) => typeof v === 'string' && v.trim().length > 0) || '';
+              const nome = feature.get('nome') || feature.get('name') || feature.get('NOME') || feature.get('description') || firstText;
+              const isFlagSelected = !!feature.get('selected');
+              let coordKey = '';
+              try {
+                const c = toLonLat((feature.getGeometry() as any).getCoordinates());
+                coordKey = `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
+              } catch {}
+              const isSelected = isFlagSelected || selectedKmzRefsRef.current.has(coordKey);
+              return new Style({
+                image: new Icon({ src: isSelected ? '/selected_pin.png' : '/default_pin.png', scale: 0.6 }),
+                text: new Text({
+                  text: nome,
+                  font: '12px Inter, sans-serif',
+                  fill: new Fill({ color: '#111' }),
+                  stroke: new Stroke({ color: '#fff', width: 3 }),
+                  offsetY: -16
+                })
+              });
+            }
+            return new Style({
+              image: new CircleStyle({ radius: 4, fill: new Fill({ color: '#2563eb' }), stroke: new Stroke({ color: '#1e3a8a', width: 1 }) })
+            });
+          }
+          if (type === 'LineString' || type === 'MultiLineString') {
+            if (isDistrito) {
+              return new Style({ stroke: new Stroke({ color: 'rgba(0,0,0,0)', width: 0 }) });
+            }
+            return new Style({ stroke: new Stroke({ color: '#2563eb', width: 2 }) });
+          }
+          if (type === 'Polygon' || type === 'MultiPolygon') {
+            if (isDistrito) {
+              return new Style({ fill: new Fill({ color: 'rgba(37,150,190,0.2)' }) });
+            }
+            return new Style({ stroke: new Stroke({ color: '#2563eb', width: 2 }), fill: new Fill({ color: 'rgba(37,99,235,0.12)' }) });
+          }
+          return new Style({ stroke: new Stroke({ color: '#2563eb', width: 2 }) });
+        });
+        map.addLayer(layer);
+        kmzLayersRef.current.push(layer);
+      } catch {}
+    });
+
     map.on('singleclick', (event) => {
-      const feature = map.forEachFeatureAtPixel(event.pixel, (feature) => {
-        return feature;
-      });
-      
-      if (feature && feature.get('id')) {
+      const feature = map.forEachFeatureAtPixel(event.pixel, (f) => f);
+      const geomType = feature?.getGeometry()?.getType();
+      const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
+      if (feature && isPoint) {
+        const props = (feature as any).getProperties ? (feature as any).getProperties() : {};
+        const keys = Object.keys(props).filter((k: string) => k !== 'geometry');
+        const title = feature.get('title') || feature.get('name') || feature.get('NOME') || feature.get('nome') || 'Local';
+        const descProp = feature.get('description');
+        const details = descProp ? descProp : keys.map((k: string) => `${k}: ${props[k]}`).join('\n');
+        let coords: [number, number] = [0, 0];
+        try {
+          const geom: any = feature.getGeometry();
+          const viewCoord = typeof geom.getClosestPoint === 'function'
+            ? geom.getClosestPoint(event.coordinate)
+            : geom.getCoordinates();
+          const c = toLonLat(viewCoord);
+          coords = [c[0], c[1]];
+        } catch {}
+        lastClickedFeatureRef.current = feature as Feature;
         const markerData = {
-          id: feature.get('id'),
-          coordinates: [0, 0],
-          type: feature.get('type'),
-          title: feature.get('title'),
-          description: feature.get('description'),
+          id: feature.get('id') || title,
+          coordinates: coords,
+          type: (feature.get('type') as MapMarker['type']) || 'default',
+          title,
+          description: details,
         } as MapMarker;
 
         setSelectedMarker(markerData);
         setIsDialogOpen(true);
+      } else if (onEmptyClick) {
+        const [lon, lat] = toLonLat(event.coordinate);
+        onEmptyClick([lon, lat]);
       }
     });
 
@@ -221,11 +374,44 @@ export default function MapComponent({
         mapInstanceRef.current.setTarget(undefined);
         mapInstanceRef.current = null;
       }
+      kmzLayersRef.current.forEach(layer => {
+        try {
+          map.removeLayer(layer);
+        } catch {}
+      });
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
       document.head.removeChild(style);
     };
-  }, [center, zoom, markers, theme]);
+  }, [geojsonUrls, wmsLayers, kmzUrls]);
+
+  useEffect(() => {
+    if (!mapInstanceRef.current || !center) return;
+    const view = mapInstanceRef.current.getView();
+    view.animate({ center: fromLonLat(center), duration: 250 });
+  }, [center]);
+
+  useEffect(() => {
+    const layer = markersLayerRef.current;
+    if (!layer) return;
+    const source = layer.getSource();
+    if (!source) return;
+    source.clear();
+    markers.forEach((marker) => {
+      const correctedCoords = marker.type === 'school'
+        ? offsetCoordinates(marker.coordinates)
+        : marker.coordinates;
+      const feature = new Feature({
+        geometry: new Point(fromLonLat(correctedCoords)),
+        id: marker.id,
+        type: marker.type,
+        title: marker.title,
+        description: marker.description,
+      });
+      feature.setStyle(createMarkerStyle(marker.type, theme));
+      source.addFeature(feature);
+    });
+  }, [markers, theme]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -271,6 +457,39 @@ export default function MapComponent({
     }
   };
 
+  const handleSelectCurrent = () => {
+    if (!selectedMarker || !Array.isArray(selectedMarker.coordinates)) return;
+    let coords = selectedMarker.coordinates as [number, number];
+    if (!coords || coords[0] == null || coords[1] == null || (coords[0] === 0 && coords[1] === 0)) {
+      try {
+        const geom: any = lastClickedFeatureRef.current?.getGeometry();
+        const c = toLonLat(geom.getCoordinates());
+        coords = [c[0], c[1]];
+      } catch {}
+    }
+    const key = `${coords[0].toFixed(6)},${coords[1].toFixed(6)}`;
+    selectedKmzRefsRef.current.add(key);
+    if (singleSelection) {
+      kmzLayersRef.current
+        .filter((l: any) => l?.fileName === 'Locais_oficina')
+        .forEach(l => {
+          const src = l.getSource();
+          src?.getFeatures().forEach(f => {
+            try { f.set('selected', false); } catch {}
+          });
+        });
+    }
+    if (lastClickedFeatureRef.current) {
+      lastClickedFeatureRef.current.set('selected', true);
+      try { (lastClickedFeatureRef.current as any).changed?.(); } catch {}
+    }
+    kmzLayersRef.current.forEach(l => l.changed());
+    if (typeof onSelectReference === 'function') {
+      onSelectReference(coords);
+    }
+    setIsDialogOpen(false);
+  };
+
   return (
     <div className={`absolute w-dvw h-dvh ${className} p-2`}>
       <div 
@@ -311,7 +530,8 @@ export default function MapComponent({
                         backgroundColor: {
                           school: '#3B82F6',
                           house: '#EF4444',
-                          default: '#6B7280'
+                          default: '#6B7280',
+                          selected: '#16a34a'
                         }[selectedMarker.type]
                       }}
                     />
@@ -342,7 +562,8 @@ export default function MapComponent({
                           backgroundColor: {
                             school: '#3B82F6',
                             house: '#EF4444',
-                            default: '#6B7280'
+                            default: '#6B7280',
+                            selected: '#16a34a'
                           }[selectedMarker.type]
                         }}
                       />
@@ -352,6 +573,11 @@ export default function MapComponent({
                       </span>
                     </div>
                   </div>
+                  {selectedMarker && Array.isArray(selectedMarker.coordinates) && (typeof (enableReferenceSelection) === 'boolean' ? enableReferenceSelection : false) && (
+                    <div>
+                      <Button onClick={handleSelectCurrent} className="mt-2">Selecionar este ponto</Button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -366,14 +592,15 @@ export default function MapComponent({
                   <>
                     <div
                       className="w-4 h-4 rounded-full border-2 border-white shadow-sm"
-                      style={{
-                        backgroundColor: {
-                          school: '#3B82F6',
-                          house: '#EF4444',
-                          default: '#6B7280'
-                        }[selectedMarker.type]
-                      }}
-                    />
+                        style={{
+                          backgroundColor: {
+                            school: '#3B82F6',
+                            house: '#EF4444',
+                            default: '#6B7280',
+                            selected: '#16a34a'
+                          }[selectedMarker.type]
+                        }}
+                      />
                     {selectedMarker.title || 'Local'}
                   </>
                 )}
@@ -396,20 +623,26 @@ export default function MapComponent({
                   <div className="flex items-center gap-2">
                     <div
                       className="w-3 h-3 rounded-full border border-border"
-                      style={{
-                        backgroundColor: {
-                          school: '#3B82F6',
-                          house: '#EF4444',
-                          default: '#6B7280'
-                        }[selectedMarker.type]
-                      }}
-                    />
+                        style={{
+                          backgroundColor: {
+                            school: '#3B82F6',
+                            house: '#EF4444',
+                            default: '#6B7280',
+                            selected: '#16a34a'
+                          }[selectedMarker.type]
+                        }}
+                      />
                     <span className="text-sm text-muted-foreground capitalize">
                       {selectedMarker.type === 'school' ? 'Escola' : 
                        selectedMarker.type === 'house' ? 'Casa' : 'Ponto de Interesse'}
                     </span>
                   </div>
                 </div>
+                {selectedMarker && Array.isArray(selectedMarker.coordinates) && (typeof (enableReferenceSelection) === 'boolean' ? enableReferenceSelection : false) && (
+                  <div>
+                    <Button onClick={handleSelectCurrent} className="mt-2 w-full">Selecionar este ponto</Button>
+                  </div>
+                )}
               </div>
             )}
           </DialogContent>

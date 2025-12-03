@@ -58,8 +58,8 @@ export default function FormCaminhos() {
     const [step, setStep] = useLocalStorage('form-caminhos-step', 0);
     const [concluido, setConcluido] = useLocalStorage('form-caminhos-concluido', false);
     const [center, setCenter] = useLocalStorage<Coordenadas>('form-caminhos-center', {
-        lat: -46.7268192,
-        lng: -23.6157664
+        lat: -23.6157664,
+        lng: -46.7268192
     });
     const respostaVazia = {
         escola: 1,
@@ -99,6 +99,17 @@ export default function FormCaminhos() {
     useEffect(() => {
         setMounted(true);
     }, []);
+    useEffect(() => {
+        if (center && Math.abs(center.lat) > 40 && Math.abs(center.lng) < 40) {
+            setCenter({ lat: center.lng, lng: center.lat });
+        }
+    }, [center]);
+    const geojsonUrls = (process.env.NEXT_PUBLIC_GEOJSON_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
+    const kmzUrls = (process.env.NEXT_PUBLIC_KMZ_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
+    const [kmzAutoUrls, setKmzAutoUrls] = useState<string[]>([]);
+    useEffect(() => {
+        fetch('/api/kmz/list').then(r => r.json()).then((list) => setKmzAutoUrls(list || [])).catch(() => {});
+    }, []);
     
     const steps = 15;
 
@@ -113,11 +124,11 @@ export default function FormCaminhos() {
         const escola = escolas.find(escola => +escola.id === resposta.escola);
         switch(newStep) {
             case 7:
-                if (escola)
-                    setCenter({
-                        lat: escola.coordinates[0],
-                        lng: escola.coordinates[1]
-                    })
+                if (resposta.partida) {
+                    setCenter({ lat: resposta.partida.lat, lng: resposta.partida.lng });
+                } else if (escola) {
+                    setCenter({ lat: escola.coordinates[1], lng: escola.coordinates[0] });
+                }
                 break;
             case 9:
                 if (resposta.partida)
@@ -140,8 +151,73 @@ export default function FormCaminhos() {
     const mapSteps = [7, 9, 14];
     return (<>
         <MapComponent
-            center={[center?.lat || 0, center?.lng || 0]}
-            markers={escolas}
+            center={center && typeof center.lng === 'number' && typeof center.lat === 'number' ? [center.lng, center.lat] : undefined}
+            markers={[
+                ...escolas,
+                ...(resposta.partida ? [{
+                    id: 'partida',
+                    coordinates: [resposta.partida.lng, resposta.partida.lat],
+                    type: 'house',
+                    title: 'Casa'
+                } as MapMarker] : []),
+                ...(resposta.reuniao ? [{
+                    id: 'reuniao',
+                    coordinates: [resposta.reuniao.lng, resposta.reuniao.lat],
+                    type: 'selected',
+                    title: 'Reunião'
+                } as MapMarker] : []),
+                ...((resposta.referencias || []).map((ref, idx) => ({
+                    id: `ref-${idx}`,
+                    coordinates: [ref.lng, ref.lat],
+                    type: 'selected',
+                    title: 'Referência'
+                } as MapMarker)))
+            ]}
+            onEmptyClick={(coordinates) => {
+                if (step === 7) {
+                    setResposta({
+                        ...resposta,
+                        partida: { lat: coordinates[1], lng: coordinates[0] }
+                    });
+                    setCenter({ lat: coordinates[1], lng: coordinates[0] });
+                } else if (step === 9) {
+                    const novaRef = { lat: coordinates[1], lng: coordinates[0] };
+                    setResposta({
+                        ...resposta,
+                        referencias: [...(resposta.referencias || []), novaRef]
+                    });
+                } else if (step === 14) {
+                    const reuniao = { lat: coordinates[1], lng: coordinates[0] };
+                    setResposta({
+                        ...resposta,
+                        reuniao
+                    });
+                }
+            }}
+            enableReferenceSelection={[9,14].includes(step)}
+            onSelectReference={(coords) => {
+                if (step === 9) {
+                    const novaRef = { lat: coords[1], lng: coords[0] };
+                    setResposta({
+                        ...resposta,
+                        referencias: [...(resposta.referencias || []), novaRef]
+                    });
+                } else if (step === 14) {
+                    const reuniao = { lat: coords[1], lng: coords[0] };
+                    setResposta({
+                        ...resposta,
+                        reuniao
+                    });
+                }
+            }}
+            singleSelection={step === 14}
+            geojsonUrls={geojsonUrls}
+            kmzUrls={(kmzUrls.length ? kmzUrls : kmzAutoUrls).filter(u => step === 7 ? (decodeURIComponent(u.split('/').pop() || '') === 'SIRGAS_SHP_distrito.kmz') : true)}
+            wmsLayers={process.env.NEXT_PUBLIC_QGIS_WMS_URL ? [{
+                url: process.env.NEXT_PUBLIC_QGIS_WMS_URL as string,
+                params: { LAYERS: process.env.NEXT_PUBLIC_QGIS_WMS_LAYERS || 'all', TILED: 'true' },
+                serverType: 'qgis'
+            }] : []}
         />
         {step === 7 && <SelecionarCasa handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
