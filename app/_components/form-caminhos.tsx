@@ -2,7 +2,8 @@
 
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import MapComponent, { MapMarker } from "@/components/map";
+import type { MapMarker } from "@/components/map";
+import dynamic from "next/dynamic";
 import { Undo2, Plus, Trash2, Radio } from "lucide-react";
 import Image from "next/image";
 import { Progress } from "@/components/ui/progress";
@@ -111,8 +112,10 @@ export default function FormCaminhos() {
     const kmzUrls = (process.env.NEXT_PUBLIC_KMZ_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
     const [kmzAutoUrls, setKmzAutoUrls] = useState<string[]>([]);
     useEffect(() => {
-        fetch('/api/kmz/list').then(r => r.json()).then((list) => setKmzAutoUrls(list || [])).catch(() => {});
-    }, []);
+        if ([7,9,14].includes(step) && kmzAutoUrls.length === 0) {
+            fetch('/api/kmz/list').then(r => r.json()).then((list) => setKmzAutoUrls(list || [])).catch(() => {});
+        }
+    }, [step]);
     
     const steps = 15;
     const [confirmOpen, setConfirmOpen] = useState(false);
@@ -207,7 +210,9 @@ export default function FormCaminhos() {
 
     const progressValue = (step / (steps)) * 100;
     const mapSteps = [7, 9, 14];
+    const MapComponent = dynamic(() => import("@/components/map"), { ssr: false });
     return (<>
+        {mapSteps.includes(step) && (
         <MapComponent
             center={center && typeof center.lng === 'number' && typeof center.lat === 'number' ? [center.lng, center.lat] : undefined}
             markers={[
@@ -271,7 +276,7 @@ export default function FormCaminhos() {
                 params: { LAYERS: process.env.NEXT_PUBLIC_QGIS_WMS_LAYERS || 'all', TILED: 'true' },
                 serverType: 'qgis'
             }] : []}
-        />
+        />)}
         {step === 7 && <SelecionarCasa canForward={!!resposta.partida} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {step === 14 && <SelecionarPontosReferencia finalizar onFinalizar={() => setConfirmOpen(true)} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}

@@ -5,10 +5,15 @@
   "scripts": {
     "dev": "next dev --turbopack -p 3000",
     "build": "next build",
-    "start": "next start -p 3000",
+    "start": "next start -p 3010",
     "lint": "next lint",
     "db:seed": "npx prisma db seed",
-    "db:reset": "npx prisma migrate reset && npx prisma db seed"
+    "db:reset": "npx prisma migrate reset && npx prisma db seed",
+    "docker:build": "docker build -t escolas-paraisopolis:standalone .",
+    "docker:run": "docker run -d --name escolas-paraisopolis -p 3010:3010 --env-file .env escolas-paraisopolis:standalone",
+    "docker:stop": "docker stop escolas-paraisopolis || true",
+    "docker:rm": "docker rm escolas-paraisopolis || true",
+    "docker:logs": "docker logs -f escolas-paraisopolis"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.2",

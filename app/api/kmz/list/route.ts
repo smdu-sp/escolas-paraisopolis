@@ -9,5 +9,5 @@ export async function GET() {
     return new Response(JSON.stringify([]), { headers: { 'content-type': 'application/json' }})
   const files = fs.readdirSync(dir).filter(f => f.toLowerCase().endsWith('.kmz'))
   const urls = files.map(f => `/kmz/${encodeURIComponent(f)}`)
-  return new Response(JSON.stringify(urls), { headers: { 'content-type': 'application/json' }})
+  return new Response(JSON.stringify(urls), { headers: { 'content-type': 'application/json', 'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=600' }})
 }
