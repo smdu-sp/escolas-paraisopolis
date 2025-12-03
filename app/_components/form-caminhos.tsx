@@ -153,7 +153,10 @@ export default function FormCaminhos() {
         <MapComponent
             center={center && typeof center.lng === 'number' && typeof center.lat === 'number' ? [center.lng, center.lat] : undefined}
             markers={[
-                ...escolas,
+                ...escolas.map((e) => ({
+                    ...e,
+                    type: (+e.id === resposta.escola) ? 'school_selected' : 'school'
+                } as MapMarker)),
                 ...(resposta.partida ? [{
                     id: 'partida',
                     coordinates: [resposta.partida.lng, resposta.partida.lat],

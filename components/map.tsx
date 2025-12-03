@@ -28,7 +28,7 @@ import JSZip from 'jszip';
 export interface MapMarker {
   id: string;
   coordinates: [number, number] | any; // [longitude, latitude]
-  type: 'school' | 'house' | 'default' | 'selected';
+  type: 'school' | 'house' | 'default' | 'selected' | 'school_selected';
   title?: string;
   description?: string;
 }
@@ -47,12 +47,7 @@ interface MapComponentProps {
   singleSelection?: boolean;
 }
 
-function offsetCoordinates(coordinates: [number, number]): [number, number] {
-  const [lon, lat] = coordinates;
-  const longitudeOffset = 0.0025;
-  const latitudeOffset = 0.0000;
-  return [lon + longitudeOffset, lat + latitudeOffset];
-}
+// Pins são ancorados na base (centro inferior) para alinhar a ponta ao ponto
 
 export default function MapComponent({ 
   center = [-46.7268192, -23.6157664],
@@ -76,23 +71,40 @@ export default function MapComponent({
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const isMobile = useIsMobile();
   const { theme } = useTheme();
+  const [hasSelectedEscolaPin, setHasSelectedEscolaPin] = useState<boolean>(false);
   const selectedKmzRefsRef = useRef<Set<string>>(new Set());
   const kmzLayersRef = useRef<VectorLayer<VectorSource>[]>([]);
   const lastClickedFeatureRef = useRef<Feature | null>(null);
 
-  const createMarkerStyle = (type: MapMarker['type'], currentTheme?: string) => {
+  const createMarkerStyle = (type: MapMarker['type'], currentTheme?: string, title?: string) => {
     const pins = {
       school: "/escola_pin.png",
       house: "/casa_pin.png",
       default: "/default_pin.png",
       selected: "/selected_pin.png",
-    }
-    return new Style({
+      school_selected: hasSelectedEscolaPin ? "/selected_escola_pin.png" : "/selected_pin.png",
+    } as const;
+    const style = new Style({
       image: new Icon({
         src: pins[type],
         scale: 0.60,
+        anchor: [0.5, 1],
+        anchorXUnits: 'fraction',
+        anchorYUnits: 'fraction',
       })
     });
+    if ((type === 'school' || type === 'school_selected') && title) {
+      style.setText(new Text({
+        text: title,
+        font: '12px Inter, sans-serif',
+        fill: new Fill({ color: '#111' }),
+        stroke: new Stroke({ color: '#fff', width: 3 }),
+        textAlign: 'center',
+        textBaseline: 'bottom',
+        offsetY: -28,
+      }));
+    }
+    return style;
   };
 
   // Function to create tile layer (always using OSM light theme)
@@ -102,6 +114,11 @@ export default function MapComponent({
     });
   };
   useEffect(() => {
+    // Verificar se o asset selected_escola_pin.png existe; usar fallback caso contrário
+    fetch('/selected_escola_pin.png', { method: 'HEAD' })
+      .then(r => setHasSelectedEscolaPin(r.ok))
+      .catch(() => setHasSelectedEscolaPin(false));
+
     if (!mapRef.current) return;
     const style = document.createElement('style');
     style.textContent = `
@@ -171,12 +188,10 @@ export default function MapComponent({
     });
     markersLayerRef.current = markersLayer;
     markersLayer.setZIndex(40);
+    (markersLayer as any).setDeclutter?.(true);
 
     markers.forEach((marker) => {
-      const correctedCoords = marker.type === 'house' 
-        ? marker.coordinates 
-        : offsetCoordinates(marker.coordinates);
-      
+      const correctedCoords = marker.coordinates;
       const feature = new Feature({
         geometry: new Point(fromLonLat(correctedCoords)),
         id: marker.id,
@@ -185,7 +200,7 @@ export default function MapComponent({
         description: marker.description,
       });
 
-      feature.setStyle(createMarkerStyle(marker.type, theme));
+      feature.setStyle(createMarkerStyle(marker.type, theme, marker.title));
       markersSource.addFeature(feature);
     });
 
@@ -286,13 +301,15 @@ export default function MapComponent({
               } catch {}
               const isSelected = isFlagSelected || selectedKmzRefsRef.current.has(coordKey);
               return new Style({
-                image: new Icon({ src: isSelected ? '/selected_pin.png' : '/default_pin.png', scale: 0.6 }),
+                image: new Icon({ src: isSelected ? '/selected_pin.png' : '/default_pin.png', scale: 0.6, anchor: [0.5, 1], anchorXUnits: 'fraction', anchorYUnits: 'fraction' }),
                 text: new Text({
                   text: nome,
                   font: '12px Inter, sans-serif',
                   fill: new Fill({ color: '#111' }),
                   stroke: new Stroke({ color: '#fff', width: 3 }),
-                  offsetY: -16
+                  textAlign: 'center',
+                  textBaseline: 'bottom',
+                  offsetY: -28
                 })
               });
             }
@@ -398,9 +415,7 @@ export default function MapComponent({
     if (!source) return;
     source.clear();
     markers.forEach((marker) => {
-      const correctedCoords = marker.type === 'school'
-        ? offsetCoordinates(marker.coordinates)
-        : marker.coordinates;
+      const correctedCoords = marker.coordinates;
       const feature = new Feature({
         geometry: new Point(fromLonLat(correctedCoords)),
         id: marker.id,
@@ -408,7 +423,7 @@ export default function MapComponent({
         title: marker.title,
         description: marker.description,
       });
-      feature.setStyle(createMarkerStyle(marker.type, theme));
+      feature.setStyle(createMarkerStyle(marker.type, theme, marker.title));
       source.addFeature(feature);
     });
   }, [markers, theme]);
@@ -424,7 +439,7 @@ export default function MapComponent({
         if (source) {
           source.getFeatures().forEach(feature => {
             const markerType = feature.get('type') as MapMarker['type'];
-            feature.setStyle(createMarkerStyle(markerType, theme));
+            feature.setStyle(createMarkerStyle(markerType, theme, feature.get('title')));
           });
         }
       }
@@ -531,7 +546,8 @@ export default function MapComponent({
                           school: '#3B82F6',
                           house: '#EF4444',
                           default: '#6B7280',
-                          selected: '#16a34a'
+                          selected: '#16a34a',
+                          school_selected: '#16a34a'
                         }[selectedMarker.type]
                       }}
                     />
@@ -563,7 +579,8 @@ export default function MapComponent({
                             school: '#3B82F6',
                             house: '#EF4444',
                             default: '#6B7280',
-                            selected: '#16a34a'
+                            selected: '#16a34a',
+                            school_selected: '#16a34a'
                           }[selectedMarker.type]
                         }}
                       />
@@ -597,7 +614,8 @@ export default function MapComponent({
                             school: '#3B82F6',
                             house: '#EF4444',
                             default: '#6B7280',
-                            selected: '#16a34a'
+                            selected: '#16a34a',
+                            school_selected: '#16a34a'
                           }[selectedMarker.type]
                         }}
                       />
@@ -628,7 +646,8 @@ export default function MapComponent({
                             school: '#3B82F6',
                             house: '#EF4444',
                             default: '#6B7280',
-                            selected: '#16a34a'
+                            selected: '#16a34a',
+                            school_selected: '#16a34a'
                           }[selectedMarker.type]
                         }}
                       />
