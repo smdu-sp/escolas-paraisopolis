@@ -288,7 +288,7 @@ export default function FormCaminhos() {
                 {step > 0 && <CardHeader className="flex gap-0">
                     <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
                         <Image
-                            src={`${basePath}/${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
+                            src={`${basePath}${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
                             alt="Prefeitura de São Paulo"
                             className="w-32 md:hidden"
                             width={900}
@@ -838,7 +838,7 @@ const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentThe
                     <CardHeader className="flex gap-0">
                         <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
                             <Image
-                                src={`${basePath}/${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
+                                src={`${basePath}${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
                                 alt="Prefeitura de São Paulo"
                                 className="w-32 md:hidden"
                                 width={900}
@@ -888,7 +888,7 @@ const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted
                     <CardHeader className="flex gap-0">
                         <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
                             <Image
-                                src={`${basePath}/${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
+                                src={`${basePath}${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
                                 alt="Prefeitura de São Paulo"
                                 className="w-32 md:hidden"
                                 width={900}
