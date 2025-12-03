@@ -124,14 +124,19 @@ export default function FormCaminhos() {
     async function handleSaveForm() {
         const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
         const escolaSel = escolas.find((e) => +e.id === resposta.escola);
+        if (!escolaSel) {
+            toast.error('Selecione a escola antes de enviar');
+            setStep(0);
+            return;
+        }
         const payload = {
             escola: resposta.escola,
-            escolaInfo: escolaSel ? {
+            escolaInfo: {
                 nome: escolaSel.title || String(resposta.escola),
                 endereco: escolaSel.description || undefined,
                 lat: escolaSel.coordinates[1],
                 lng: escolaSel.coordinates[0],
-            } : undefined,
+            },
             alunos: (resposta.alunos || []).map((d) => {
                 const dt = d instanceof Date ? d : new Date(d);
                 const ano = dt.getFullYear();
@@ -163,7 +168,7 @@ export default function FormCaminhos() {
                 setResposta(respostaVazia);
                 setConcluido(true);
             } else {
-                toast.error('Falha ao enviar formulário');
+                toast.error((json && (json.error as string)) || 'Falha ao enviar formulário');
             }
         } catch {
             toast.error('Erro ao enviar formulário');
