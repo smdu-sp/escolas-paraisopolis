@@ -13,12 +13,13 @@ import { Style, Icon, Stroke, Fill, Circle as CircleStyle, Text } from 'ol/style
 import OSM from 'ol/source/OSM';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { defaults as defaultControls, Attribution } from 'ol/control';
+import { defaults as defaultInteractions } from 'ol/interaction';
 import 'ol/ol.css';
 import { Button } from './ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Plus, Minus, Sun, Moon } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 import { useTheme } from "next-themes";
 import TileWMS from 'ol/source/TileWMS';
 import GeoJSON from 'ol/format/GeoJSON';
@@ -215,6 +216,10 @@ export default function MapComponent({
         attribution: false,
         rotate: false
       }).extend([attributionControl]),
+      interactions: defaultInteractions({
+        doubleClickZoom: false,
+        keyboard: false,
+      }),
       layers: [
         tileLayer,
         markersLayer,

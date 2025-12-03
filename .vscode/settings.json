@@ -1,4 +1,5 @@
 {
   "tailwindcss-intellisense.trace.server": "verbose",
-  "tailwindCSS.emmetCompletions": true
+  "tailwindCSS.emmetCompletions": true,
+  "prisma.pinToPrisma6": true
 }
