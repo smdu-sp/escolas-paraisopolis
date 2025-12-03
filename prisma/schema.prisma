@@ -26,94 +26,138 @@ model Usuario {
     @@map("usuarios")
 }
 
-model Escola {
-    id          String  @id @default(uuid())
-    nome        String
-    endereco    String
-    latitude    Decimal @db.Decimal(11, 8)
-    longitude   Decimal @db.Decimal(11, 8)
+enum Sentido {
+    IDA
+    VOLTA
+}
 
-    cadastros   Cadastro[]
+model Escola {
+    id          String   @id @default(uuid())
+    nome        String
+    endereco    String?
+    latitude    Decimal  @db.Decimal(11, 8)
+    longitude   Decimal  @db.Decimal(11, 8)
+    respostas   Resposta[]
 
     @@map("escolas")
 }
 
-model Aluno {
-    id          String      @id @default(uuid())
-    dataNasc    DateTime    @db.Date
-    cadastroId  String
-
-    cadastro    Cadastro    @relation(fields: [cadastroId], references: [id])
-
-    @@map("alunos")
-}
-
-model PontoInteresse {
-    id          String  @id @default(uuid())
-    latitude    Decimal @db.Decimal(11, 8)
-    longitude   Decimal @db.Decimal(11, 8)
-    endereco    String
-
-    cadastros   Cadastro[]
-
-    @@map("pontos_interesse")
-}
-
-model PontoSugerido {
-    id          String      @id @default(uuid())
-    latitude    Decimal     @db.Decimal(11, 8)
-    longitude   Decimal     @db.Decimal(11, 8)
-    cadastroId  String
-
-    cadastro    Cadastro    @relation(fields: [cadastroId], references: [id])
-
-    @@map("pontos_sugeridos")
-}
-
-enum ApontamentoTipo {
-    PROBLEMA
-    SUGESTAO
-}
-
-model Apontamento {
-    id          String          @id @default(uuid())
-    descricao   String          @db.Text
-    cadastroId  String
-    tipo        ApontamentoTipo
-
-    cadastro    Cadastro        @relation(fields: [cadastroId], references: [id])
-
-    @@map("apontamentos")
-}
-
-model LocalReuniao {
-    id          String          @id @default(uuid())
-    latitude    Decimal         @db.Decimal(11, 8)
-    longitude   Decimal         @db.Decimal(11, 8)
-    cadastroId  String
-
-    cadastro    Cadastro        @relation(fields: [cadastroId], references: [id])
-
-    @@map("locais_reuniao")
-}
-
-model Cadastro {
-    id                  String              @id @default(uuid())
+model Resposta {
+    id                  String     @id @default(uuid())
+    criadoEm            DateTime   @default(now())
     escolaId            String
-    transporteIda       String
-    acompanhanteIda     String
-    transporteVolta     String
-    acompanhanteVolta   String
-    casaLatitude        Decimal             @db.Decimal(11, 8)
-    casaLongitude       Decimal             @db.Decimal(11, 8)
-    sensacao            String?             @db.Text
+    escola              Escola     @relation(fields: [escolaId], references: [id])
+    temReuniao          Boolean    @default(false)
+    pontos              Ponto[]
+    criancas            Crianca[]
+    transportes         Transporte[]
+    acompanhantes       Acompanhante[]
+    sentimentos         SentimentoResposta[]
+    problemas           Problema[]
+    sugestoes           Sugestao[]
+    usuarioIdOpcional   String?
 
-    escola              Escola              @relation(fields: [escolaId], references: [id])
-    alunos              Aluno[]
-    pontosInteresse     PontoInteresse[]
-    pontosSugeridos     PontoSugerido[]
-    apontamentos        Apontamento[]
-    locaisReuniao       LocalReuniao[]
+    @@index([escolaId])
+    @@map("respostas")
+}
 
-    @@map("cadastros")
+enum TipoPonto {
+    ORIGEM
+    REFERENCIA
+    REUNIAO
+}
+
+model Ponto {
+    id          String    @id @default(uuid())
+    respostaId  String
+    resposta    Resposta  @relation(fields: [respostaId], references: [id])
+    tipo        TipoPonto
+    nomeLocal   String?
+    latitude    Decimal   @db.Decimal(11, 8)
+    longitude   Decimal   @db.Decimal(11, 8)
+    ordem       Int?
+
+    @@index([respostaId, tipo])
+    @@map("pontos")
+}
+
+model Crianca {
+    id             String    @id @default(uuid())
+    respostaId     String
+    resposta       Resposta  @relation(fields: [respostaId], references: [id])
+    dataNascimento DateTime  @db.Date
+
+    @@map("criancas")
+}
+
+model Transporte {
+    id             String    @id @default(uuid())
+    respostaId     String
+    resposta       Resposta  @relation(fields: [respostaId], references: [id])
+    sentido        Sentido
+    tipoCodigo     String
+    descricaoLivre String?
+
+    @@index([respostaId, sentido])
+    @@map("transportes")
+}
+
+model Acompanhante {
+    id             String    @id @default(uuid())
+    respostaId     String
+    resposta       Resposta  @relation(fields: [respostaId], references: [id])
+    tipoCodigo     String
+    descricaoLivre String?
+
+    @@index([respostaId])
+    @@map("acompanhantes")
+}
+
+enum ChaveSentimento {
+    RUAS_CALCADAS
+    LIXO
+    ESGOTO
+    SEGURANCA
+    VELOCIDADE
+}
+
+model MetricaSentimento {
+    id        String              @id @default(uuid())
+    chave     ChaveSentimento     @unique
+    nome      String
+    respostas SentimentoResposta[]
+
+    @@map("metricas_sentimento")
+}
+
+model SentimentoResposta {
+    id          String            @id @default(uuid())
+    respostaId  String
+    resposta    Resposta          @relation(fields: [respostaId], references: [id])
+    metricaId   String
+    metrica     MetricaSentimento @relation(fields: [metricaId], references: [id])
+    nota        Int               @db.SmallInt
+
+    @@unique([respostaId, metricaId])
+    @@map("sentimentos_resposta")
+}
+
+model Problema {
+    id          String    @id @default(uuid())
+    respostaId  String
+    resposta    Resposta  @relation(fields: [respostaId], references: [id])
+    ordem       Int
+    texto       String
+
+    @@map("problemas")
+}
+
+model Sugestao {
+    id          String    @id @default(uuid())
+    respostaId  String
+    resposta    Resposta  @relation(fields: [respostaId], references: [id])
+    ordem       Int
+    texto       String
+
+    @@map("sugestoes")
 }

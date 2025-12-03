@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 interface Questionario {
     escola: number;
@@ -33,6 +34,7 @@ interface Questionario {
 interface Coordenadas {
     lat: number;
     lng: number;
+    nomeLocal: string;
 }
 
 interface Sentimento {
@@ -59,7 +61,8 @@ export default function FormCaminhos() {
     const [concluido, setConcluido] = useLocalStorage('form-caminhos-concluido', false);
     const [center, setCenter] = useLocalStorage<Coordenadas>('form-caminhos-center', {
         lat: -23.6157664,
-        lng: -46.7268192
+        lng: -46.7268192,
+        nomeLocal: ''
     });
     const respostaVazia = {
         escola: 1,
@@ -101,7 +104,7 @@ export default function FormCaminhos() {
     }, []);
     useEffect(() => {
         if (center && Math.abs(center.lat) > 40 && Math.abs(center.lng) < 40) {
-            setCenter({ lat: center.lng, lng: center.lat });
+            setCenter({ lat: center.lng, lng: center.lat, nomeLocal: center.nomeLocal || '' });
         }
     }, [center]);
     const geojsonUrls = (process.env.NEXT_PUBLIC_GEOJSON_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
@@ -112,6 +115,7 @@ export default function FormCaminhos() {
     }, []);
     
     const steps = 15;
+    const [confirmOpen, setConfirmOpen] = useState(false);
 
     async function handleSaveForm() {
         toast.success("Formulário salvo com sucesso!");
@@ -125,16 +129,17 @@ export default function FormCaminhos() {
         switch(newStep) {
             case 7:
                 if (resposta.partida) {
-                    setCenter({ lat: resposta.partida.lat, lng: resposta.partida.lng });
+                    setCenter({ lat: resposta.partida.lat, lng: resposta.partida.lng, nomeLocal: resposta.partida.nomeLocal || 'Casa' });
                 } else if (escola) {
-                    setCenter({ lat: escola.coordinates[1], lng: escola.coordinates[0] });
+                    setCenter({ lat: escola.coordinates[1], lng: escola.coordinates[0], nomeLocal: escola.title || '' });
                 }
                 break;
             case 9:
                 if (resposta.partida)
                     setCenter({
                         lat: resposta.partida.lat,
-                        lng: resposta.partida.lng
+                        lng: resposta.partida.lng,
+                        nomeLocal: resposta.partida.nomeLocal || 'Casa'
                     })
                 break;
         }
@@ -143,7 +148,19 @@ export default function FormCaminhos() {
     function handleStepBack() {
         checkNewStep(step - 1);
     }
+    function podeAvancarAtual() {
+        if (step === 3) return (resposta.transporteIda || []).length > 0;
+        if (step === 4) return (resposta.transporteVolta || []).length > 0;
+        if (step === 5) return (resposta.acompanhantes || []).length > 0;
+        if (step === 7) return !!resposta.partida;
+        return true;
+    }
     function handleStepForward() {
+        if (!podeAvancarAtual()) {
+            if (step === 7) toast.error('Selecione sua casa no mapa');
+            else toast.error('Selecione pelo menos uma opção');
+            return;
+        }
         checkNewStep(step + 1);
     }
 
@@ -161,52 +178,44 @@ export default function FormCaminhos() {
                     id: 'partida',
                     coordinates: [resposta.partida.lng, resposta.partida.lat],
                     type: 'house',
-                    title: 'Casa'
+                    title: resposta.partida.nomeLocal || 'Casa'
                 } as MapMarker] : []),
                 ...(resposta.reuniao ? [{
                     id: 'reuniao',
                     coordinates: [resposta.reuniao.lng, resposta.reuniao.lat],
                     type: 'selected',
-                    title: 'Reunião'
+                    title: resposta.reuniao.nomeLocal || 'Reunião'
                 } as MapMarker] : []),
                 ...((resposta.referencias || []).map((ref, idx) => ({
                     id: `ref-${idx}`,
                     coordinates: [ref.lng, ref.lat],
                     type: 'selected',
-                    title: 'Referência'
+                    title: ref.nomeLocal || 'Referência'
                 } as MapMarker)))
             ]}
             onEmptyClick={(coordinates) => {
                 if (step === 7) {
                     setResposta({
                         ...resposta,
-                        partida: { lat: coordinates[1], lng: coordinates[0] }
+                        partida: { lat: coordinates[1], lng: coordinates[0], nomeLocal: 'Casa' }
                     });
-                    setCenter({ lat: coordinates[1], lng: coordinates[0] });
+                    setCenter({ lat: coordinates[1], lng: coordinates[0], nomeLocal: 'Casa' });
                 } else if (step === 9) {
-                    const novaRef = { lat: coordinates[1], lng: coordinates[0] };
-                    setResposta({
-                        ...resposta,
-                        referencias: [...(resposta.referencias || []), novaRef]
-                    });
+                    // seleção aleatória será confirmada pelo Drawer com nome
                 } else if (step === 14) {
-                    const reuniao = { lat: coordinates[1], lng: coordinates[0] };
-                    setResposta({
-                        ...resposta,
-                        reuniao
-                    });
+                    // seleção aleatória será confirmada pelo Drawer com nome
                 }
             }}
             enableReferenceSelection={[9,14].includes(step)}
-            onSelectReference={(coords) => {
+            onSelectReference={(coords, nome) => {
                 if (step === 9) {
-                    const novaRef = { lat: coords[1], lng: coords[0] };
+                    const novaRef = { lat: coords[1], lng: coords[0], nomeLocal: nome || 'Referência' };
                     setResposta({
                         ...resposta,
                         referencias: [...(resposta.referencias || []), novaRef]
                     });
                 } else if (step === 14) {
-                    const reuniao = { lat: coords[1], lng: coords[0] };
+                    const reuniao = { lat: coords[1], lng: coords[0], nomeLocal: nome || 'Reunião' };
                     setResposta({
                         ...resposta,
                         reuniao
@@ -222,9 +231,9 @@ export default function FormCaminhos() {
                 serverType: 'qgis'
             }] : []}
         />
-        {step === 7 && <SelecionarCasa handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
+        {step === 7 && <SelecionarCasa canForward={!!resposta.partida} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
-        {step === 14 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
+        {step === 14 && <SelecionarPontosReferencia finalizar onFinalizar={() => setConfirmOpen(true)} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {!mapSteps.includes(step) && <div className="relative h-full w-full bg-black/50 z-49">
             <Card className={`absolute bottom-0 md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 w-full md:max-w-4xl shadow-md rounded-none md:rounded-2xl md:h-fit ${step > 0 ? 'h-full' : 'h-fit'} flex justify-between`}>
                 {step > 0 && <CardHeader className="flex gap-0">
@@ -263,16 +272,45 @@ export default function FormCaminhos() {
                     {step > 0 && <Button variant="outline" className="hidden md:flex dark:text-foreground" onClick={() => handleStepBack()}>
                         <Undo2 /> Voltar
                     </Button>}
-                    {![13, 15].includes(step) && <Button className="w-full md:w-fit" onClick={() => handleStepForward()}>{step === 0 ? 'Iniciar questionário' : [6, 8].includes(step) ? 'Selecionar' : 'Próxima pergunta'}</Button>}
+                    {![13, 15].includes(step) && (
+                        step === 14 ? (
+                            <Button className="w-full md:w-fit" onClick={() => setConfirmOpen(true)}>Finalizar questionário</Button>
+                        ) : (
+                            <Button
+                                className="w-full md:w-fit"
+                                variant={((step === 3 && (resposta.transporteIda || []).length === 0) || (step === 4 && (resposta.transporteVolta || []).length === 0) || (step === 5 && (resposta.acompanhantes || []).length === 0)) ? 'outline' : undefined}
+                                disabled={(step === 3 && (resposta.transporteIda || []).length === 0) || (step === 4 && (resposta.transporteVolta || []).length === 0) || (step === 5 && (resposta.acompanhantes || []).length === 0)}
+                                onClick={() => handleStepForward()}
+                            >
+                                {((step === 3 && (resposta.transporteIda || []).length === 0) || (step === 4 && (resposta.transporteVolta || []).length === 0) || (step === 5 && (resposta.acompanhantes || []).length === 0))
+                                    ? 'Selecione uma opção'
+                                    : (step === 0 ? 'Iniciar questionário' : [6, 8].includes(step) ? 'Selecionar' : 'Próxima pergunta')}
+                            </Button>
+                        )
+                    )}
                     {step === 13 &&
                         <div className="flex flex-col gap-2 md:flex-row-reverse w-full">
                             <Button className="w-full md:w-fit" onClick={() => handleStepForward()}>Sim, selecionar</Button>
-                            <Button variant="outline" className="w-full md:w-fit" onClick={() => handleSaveForm()}>Não, finalizar questionário</Button>
+                            <Button variant="outline" className="w-full md:w-fit" onClick={() => setConfirmOpen(true)}>Não, finalizar questionário</Button>
                         </div>
                     }
                 </CardFooter>
             </Card>
         </div>}
+        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Confirmar envio</DialogTitle>
+                    <DialogDescription>
+                        Você deseja realmente enviar as respostas do questionário?
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+                    <Button onClick={() => { setConfirmOpen(false); handleSaveForm(); }}>Enviar</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
     </>)
 }
 
@@ -425,7 +463,10 @@ const Alunos = ({ resposta, setResposta }: StepsProps) => {
     const atualizarDataAluno = (index: number, data: string) => {
         const novosAlunos = [...alunosComDatasValidas];
         const [ano, mes, dia] = data.split('-');
-        novosAlunos[index] = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+        const selecionada = new Date(parseInt(ano), parseInt(mes) - 1, parseInt(dia));
+        const hoje = new Date();
+        const dataValida = selecionada > hoje ? hoje : selecionada;
+        novosAlunos[index] = dataValida;
         setResposta({...resposta, alunos: novosAlunos});
     };
 
@@ -480,6 +521,7 @@ const Alunos = ({ resposta, setResposta }: StepsProps) => {
                                             type="date"
                                             value={formatarData(aluno)}
                                             onChange={(e) => atualizarDataAluno(index, e.target.value)}
+                                            max={formatarData(new Date())}
                                             className="w-auto"
                                         />
                                     </div>
@@ -728,9 +770,12 @@ interface MapStepProps {
     mounted: boolean;
     currentTheme?: string;
     progressValue: number;
+    finalizar?: boolean;
+    onFinalizar?: () => void;
+    canForward?: boolean;
 }
 
-const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue }: MapStepProps ) => {
+const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, canForward }: MapStepProps ) => {
     return (
         <>
             <div className="absolute z-50 md:p-1 md:mt-20 w-full">
@@ -756,7 +801,7 @@ const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentThe
                 </Card>
             </div>
             <div className="absolute z-50 md:p-1 bottom-10 w-full flex items-center justify-center">
-                <Button className="!px-0 w-fit min-w-48" onClick={() => handleStepForward()}>
+                <Button className="!px-0 w-fit min-w-48" disabled={!canForward} onClick={() => handleStepForward()}>
                     Seguir
                 </Button>
             </div>
@@ -779,7 +824,7 @@ const PontosReferencia = () => {
     )
 }
 
-const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue }: MapStepProps) => {
+const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, finalizar, onFinalizar }: MapStepProps) => {
     return (
         <>
             <div className="absolute z-50 md:p-1 md:mt-20 w-full">
@@ -805,8 +850,8 @@ const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted
                 </Card>
             </div>
             <div className="absolute z-50 md:p-1 bottom-10 w-full flex items-center justify-center">
-                <Button className="!px-0 w-fit min-w-48" onClick={() => handleStepForward()}>
-                    Seguir
+                <Button className="!px-0 w-fit min-w-48" onClick={() => (finalizar && onFinalizar) ? onFinalizar() : handleStepForward()}>
+                    {finalizar ? 'Finalizar questionário' : 'Seguir'}
                 </Button>
             </div>
         </>

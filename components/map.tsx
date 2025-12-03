@@ -16,6 +16,7 @@ import { defaults as defaultControls, Attribution } from 'ol/control';
 import { defaults as defaultInteractions } from 'ol/interaction';
 import 'ol/ol.css';
 import { Button } from './ui/button';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -44,11 +45,10 @@ interface MapComponentProps {
   wmsLayers?: { url: string; params: Record<string, string>; serverType?: 'qgis' | 'geoserver' }[];
   kmzUrls?: string[];
   enableReferenceSelection?: boolean;
-  onSelectReference?: (coordinates: [number, number]) => void;
+  onSelectReference?: (coordinates: [number, number], nome?: string) => void;
   singleSelection?: boolean;
 }
 
-// Pins são ancorados na base (centro inferior) para alinhar a ponta ao ponto
 
 export default function MapComponent({ 
   center = [-46.7268192, -23.6157664],
@@ -76,6 +76,7 @@ export default function MapComponent({
   const selectedKmzRefsRef = useRef<Set<string>>(new Set());
   const kmzLayersRef = useRef<VectorLayer<VectorSource>[]>([]);
   const lastClickedFeatureRef = useRef<Feature | null>(null);
+  const [selectedName, setSelectedName] = useState<string>('');
 
   const createMarkerStyle = (type: MapMarker['type'], currentTheme?: string, title?: string) => {
     const pins = {
@@ -94,7 +95,7 @@ export default function MapComponent({
         anchorYUnits: 'fraction',
       })
     });
-    if ((type === 'school' || type === 'school_selected') && title) {
+    if (title) {
       style.setText(new Text({
         text: title,
         font: '12px Inter, sans-serif',
@@ -186,10 +187,10 @@ export default function MapComponent({
     const markersSource = new VectorSource();
     const markersLayer = new VectorLayer({
       source: markersSource,
+      declutter: false,
     });
     markersLayerRef.current = markersLayer;
     markersLayer.setZIndex(40);
-    (markersLayer as any).setDeclutter?.(true);
 
     markers.forEach((marker) => {
       const correctedCoords = marker.coordinates;
@@ -370,6 +371,20 @@ export default function MapComponent({
         } as MapMarker;
 
         setSelectedMarker(markerData);
+        setSelectedName(title || '');
+        setIsDialogOpen(true);
+      } else if (enableReferenceSelection) {
+        const [lon, lat] = toLonLat(event.coordinate);
+        lastClickedFeatureRef.current = null;
+        const markerData = {
+          id: `ponto-${Date.now()}`,
+          coordinates: [lon, lat],
+          type: 'selected',
+          title: 'Ponto selecionado',
+          description: 'Defina um nome para este local',
+        } as MapMarker;
+        setSelectedMarker(markerData);
+        setSelectedName('');
         setIsDialogOpen(true);
       } else if (onEmptyClick) {
         const [lon, lat] = toLonLat(event.coordinate);
@@ -505,7 +520,8 @@ export default function MapComponent({
     }
     kmzLayersRef.current.forEach(l => l.changed());
     if (typeof onSelectReference === 'function') {
-      onSelectReference(coords);
+      const nome = (selectedName && selectedName.trim().length) ? selectedName.trim() : (selectedMarker?.title || undefined);
+      onSelectReference(coords, nome);
     }
     setIsDialogOpen(false);
   };
@@ -596,8 +612,13 @@ export default function MapComponent({
                     </div>
                   </div>
                   {selectedMarker && Array.isArray(selectedMarker.coordinates) && (typeof (enableReferenceSelection) === 'boolean' ? enableReferenceSelection : false) && (
-                    <div>
-                      <Button onClick={handleSelectCurrent} className="mt-2">Selecionar este ponto</Button>
+                    <div className="space-y-2">
+                      <Input
+                        placeholder="Nome do local"
+                        value={selectedName}
+                        onChange={(e) => setSelectedName(e.target.value)}
+                      />
+                      <Button onClick={handleSelectCurrent} className="mt-2" disabled={!selectedName.trim().length && !lastClickedFeatureRef.current}>Selecionar este ponto</Button>
                     </div>
                   )}
                 </div>
@@ -663,8 +684,13 @@ export default function MapComponent({
                   </div>
                 </div>
                 {selectedMarker && Array.isArray(selectedMarker.coordinates) && (typeof (enableReferenceSelection) === 'boolean' ? enableReferenceSelection : false) && (
-                  <div>
-                    <Button onClick={handleSelectCurrent} className="mt-2 w-full">Selecionar este ponto</Button>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Nome do local"
+                      value={selectedName}
+                      onChange={(e) => setSelectedName(e.target.value)}
+                    />
+                    <Button onClick={handleSelectCurrent} className="mt-2 w-full" disabled={!selectedName.trim().length && !lastClickedFeatureRef.current}>Selecionar este ponto</Button>
                   </div>
                 )}
               </div>
