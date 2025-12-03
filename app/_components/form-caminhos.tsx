@@ -213,6 +213,7 @@ export default function FormCaminhos() {
     const progressValue = (step / (steps)) * 100;
     const mapSteps = [7, 9, 14];
     const MapComponent = dynamic(() => import("@/components/map"), { ssr: false });
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (<>
         {mapSteps.includes(step) && (
         <MapComponent
@@ -287,7 +288,7 @@ export default function FormCaminhos() {
                 {step > 0 && <CardHeader className="flex gap-0">
                     <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
                         <Image
-                            src={mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}
+                            src={`${basePath}/${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
                             alt="Prefeitura de São Paulo"
                             className="w-32 md:hidden"
                             width={900}
@@ -792,6 +793,7 @@ const Acompanhantes = ({ resposta, setResposta }: StepsProps) => {
 }
 
 const PontoPartida = () => {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (
         <>
             <div className="flex flex-col space-y-1">
@@ -804,7 +806,7 @@ const PontoPartida = () => {
             </div>
             <CardContent className="space-y-4 max-sm:text-sm p-0 overflow-hidden">
                 <Image
-                    src="/casa_imagem.png"
+                    src={`${basePath}/casa_imagem.png`}
                     alt="Pin de Casa"
                     className="mx-auto"
                     width={91}
@@ -828,6 +830,7 @@ interface MapStepProps {
 }
 
 const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, canForward }: MapStepProps ) => {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (
         <>
             <div className="absolute z-50 md:p-1 md:mt-20 w-full">
@@ -835,7 +838,7 @@ const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentThe
                     <CardHeader className="flex gap-0">
                         <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
                             <Image
-                                src={mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}
+                                src={`${basePath}/${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
                                 alt="Prefeitura de São Paulo"
                                 className="w-32 md:hidden"
                                 width={900}
@@ -877,6 +880,7 @@ const PontosReferencia = () => {
 }
 
 const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, finalizar, onFinalizar }: MapStepProps) => {
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (
         <>
             <div className="absolute z-50 md:p-1 md:mt-20 w-full">
@@ -884,7 +888,7 @@ const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted
                     <CardHeader className="flex gap-0">
                         <CardTitle className="flex flex-col md:flex-row md:justify-between items-start gap-2">
                             <Image
-                                src={mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}
+                                src={`${basePath}/${mounted ? (currentTheme === "dark" ? "/prefeitura/logo-dark.png" : "/prefeitura/logo-light.png") : "/prefeitura/logo-light.png"}`}
                                 alt="Prefeitura de São Paulo"
                                 className="w-32 md:hidden"
                                 width={900}

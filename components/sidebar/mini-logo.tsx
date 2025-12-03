@@ -7,6 +7,7 @@ import Image from 'next/image';
 
 export default function MiniLogo() {
 	const [mounted, setMounted] = useState(false);
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
 
 	useEffect(() => {
 		setMounted(true);
@@ -23,7 +24,7 @@ export default function MiniLogo() {
 			<Image
 				width={1200}
 				height={1200}
-				src={"/sis-icon.png"}
+				src={`${basePath}/sis-icon.png`}
 				alt='LOGO PREFEITURA DE SÃO PAULO'
 			/>
 		</div>

@@ -29,36 +29,19 @@ export default function RootLayout({
 			suppressHydrationWarning
 			className={`${myFont.className} antialised `}>
 			<head>
-				<link
-					rel='apple-touch-icon'
-					sizes='180x180'
-					href='/apple-touch-icon.png'
-				/>
-				<link
-					rel='icon'
-					type='image/png'
-					sizes='32x32'
-					href='/favicon-32x32.png'
-				/>
-				<link
-					rel='icon'
-					type='image/png'
-					sizes='16x16'
-					href='/favicon-16x16.png'
-				/>
-				<link
-					rel='mask-icon'
-					href='/safari-pinned-tab.svg'
-					color='#5bbad5'
-				/>
-				<meta
-					name='msapplication-TileColor'
-					content='#eeeeee'
-				/>
-				<meta
-					name='theme-color'
-					content='#eeeeee'
-				/>
+				{(() => {
+					const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+					return (
+						<>
+							<link rel='apple-touch-icon' sizes='180x180' href={`${basePath}/apple-touch-icon.png`} />
+							<link rel='icon' type='image/png' sizes='32x32' href={`${basePath}/favicon-32x32.png`} />
+							<link rel='icon' type='image/png' sizes='16x16' href={`${basePath}/favicon-16x16.png`} />
+							<link rel='mask-icon' href={`${basePath}/safari-pinned-tab.svg`} color='#5bbad5' />
+							<meta name='msapplication-TileColor' content='#eeeeee' />
+							<meta name='theme-color' content='#eeeeee' />
+						</>
+					);
+				})()}
 			</head>
 			<body>
 				<AuthProvider>
