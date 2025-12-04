@@ -5,6 +5,7 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
     output: 'standalone',
     basePath: '/caminhos-escolares/paraisopolis',
+    trailingSlash: true,
     env: {
         NEXT_PUBLIC_BASE_PATH: '/caminhos-escolares/paraisopolis',
     },
