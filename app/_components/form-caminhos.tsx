@@ -16,6 +16,8 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Questionario {
     escola: number;
@@ -120,6 +122,7 @@ export default function FormCaminhos() {
     
     const steps = 15;
     const [confirmOpen, setConfirmOpen] = useState(false);
+    const isMobile = useIsMobile();
 
     async function handleSaveForm() {
         const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -218,10 +221,11 @@ export default function FormCaminhos() {
     const progressValue = (step / (steps)) * 100;
     const mapSteps = [7, 9, 14];
     const MapComponent = dynamic(() => import("@/components/map"), { ssr: false });
+    const isMapStep = mapSteps.includes(step);
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (<>
-        {mapSteps.includes(step) && (
         <MapComponent
+            className={isMapStep ? '' : 'hidden md:block pointer-events-none'}
             center={center && typeof center.lng === 'number' && typeof center.lat === 'number' ? [center.lng, center.lat] : undefined}
             markers={[
                 ...escolas.map((e) => ({
@@ -255,9 +259,7 @@ export default function FormCaminhos() {
                     });
                     setCenter({ lat: coordinates[1], lng: coordinates[0], nomeLocal: 'Casa' });
                 } else if (step === 9) {
-                    // seleção aleatória será confirmada pelo Drawer com nome
                 } else if (step === 14) {
-                    // seleção aleatória será confirmada pelo Drawer com nome
                 }
             }}
             enableReferenceSelection={[9,14].includes(step)}
@@ -284,7 +286,7 @@ export default function FormCaminhos() {
                 params: { LAYERS: process.env.NEXT_PUBLIC_QGIS_WMS_LAYERS || 'all', TILED: 'true' },
                 serverType: 'qgis'
             }] : []}
-        />)}
+        />
         {step === 7 && <SelecionarCasa canForward={!!resposta.partida} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {step === 14 && <SelecionarPontosReferencia finalizar onFinalizar={() => setConfirmOpen(true)} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
@@ -355,20 +357,45 @@ export default function FormCaminhos() {
                 </CardFooter>
             </Card>
         </div>}
-        <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Confirmar envio</DialogTitle>
-                    <DialogDescription>
-                        Você deseja realmente enviar as respostas do questionário?
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
-                    <Button onClick={() => { setConfirmOpen(false); handleSaveForm(); }}>Enviar</Button>
-                </div>
-            </DialogContent>
-        </Dialog>
+        {isMobile ? (
+            <Drawer open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DrawerContent className="h-[80vh] max-h-[80vh] min-h-[80vh] ios-drawer-fix">
+                    <DrawerHeader className="text-left">
+                        <DrawerTitle className="flex items-center gap-3 text-xl font-semibold">
+                            <div
+                                className="w-6 h-6 rounded-full border-2 border-white shadow-sm"
+                                style={{ backgroundColor: '#16a34a' }}
+                            />
+                            Confirmar envio
+                        </DrawerTitle>
+                        <DrawerDescription>
+                            Você deseja realmente enviar as respostas do questionário?
+                        </DrawerDescription>
+                    </DrawerHeader>
+                    <div className="px-4 pb-8">
+                        <div className="flex flex-col gap-2">
+                            <Button variant="outline" className="w-full" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+                            <Button className="w-full" onClick={() => { setConfirmOpen(false); handleSaveForm(); }}>Enviar</Button>
+                        </div>
+                    </div>
+                </DrawerContent>
+            </Drawer>
+        ) : (
+            <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Confirmar envio</DialogTitle>
+                        <DialogDescription>
+                            Você deseja realmente enviar as respostas do questionário?
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setConfirmOpen(false)}>Cancelar</Button>
+                        <Button onClick={() => { setConfirmOpen(false); handleSaveForm(); }}>Enviar</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        )}
     </>)
 }
 
