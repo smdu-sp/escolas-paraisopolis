@@ -1,8 +1,12 @@
 node_modules
-.next/cache
+.next
 .git
 .vscode
 *.log
 .env*
 dist
 coverage
+Dockerfile
+.dockerignore
+README.md
+scripts
