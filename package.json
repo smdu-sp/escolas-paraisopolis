@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3000",
+    "dev": "next dev --turbopack -p 3010",
     "build": "next build",
     "start": "next start -p 3010",
     "lint": "next lint",
@@ -71,12 +71,14 @@
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
-    "tokml": "^0.4.0",
     "vaul": "^1.1.2",
     "zod": "^3.24.2"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
+  },
+  "overrides": {
+    "postcss": "^8.5.10"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

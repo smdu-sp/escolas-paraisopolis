@@ -78,6 +78,13 @@ export default function MapComponent({
   const lastClickedFeatureRef = useRef<Feature | null>(null);
   const [selectedName, setSelectedName] = useState<string>('');
 
+  const onEmptyClickRef = useRef(onEmptyClick);
+  const enableReferenceSelectionRef = useRef(enableReferenceSelection);
+  const onSelectReferenceRef = useRef(onSelectReference);
+  onEmptyClickRef.current = onEmptyClick;
+  enableReferenceSelectionRef.current = enableReferenceSelection;
+  onSelectReferenceRef.current = onSelectReference;
+
   const createMarkerStyle = (type: MapMarker['type'], currentTheme?: string, title?: string) => {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     const pins = {
@@ -379,7 +386,7 @@ export default function MapComponent({
         setSelectedMarker(markerData);
         setSelectedName(title || '');
         setIsDialogOpen(true);
-      } else if (enableReferenceSelection) {
+      } else if (enableReferenceSelectionRef.current) {
         const [lon, lat] = toLonLat(event.coordinate);
         lastClickedFeatureRef.current = null;
         const markerData = {
@@ -392,9 +399,9 @@ export default function MapComponent({
         setSelectedMarker(markerData);
         setSelectedName('');
         setIsDialogOpen(true);
-      } else if (onEmptyClick) {
+      } else if (onEmptyClickRef.current) {
         const [lon, lat] = toLonLat(event.coordinate);
-        onEmptyClick([lon, lat]);
+        onEmptyClickRef.current([lon, lat]);
       }
     });
 
@@ -525,9 +532,9 @@ export default function MapComponent({
       try { (lastClickedFeatureRef.current as any).changed?.(); } catch {}
     }
     kmzLayersRef.current.forEach(l => l.changed());
-    if (typeof onSelectReference === 'function') {
+    if (typeof onSelectReferenceRef.current === 'function') {
       const nome = (selectedName && selectedName.trim().length) ? selectedName.trim() : (selectedMarker?.title || undefined);
-      onSelectReference(coords, nome);
+      onSelectReferenceRef.current(coords, nome);
     }
     setIsDialogOpen(false);
   };

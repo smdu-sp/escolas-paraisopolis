@@ -31,9 +31,16 @@ export const authConfig = {
 						}
 					);
 					if (response.status !== 200) {
-						const responseJson = await response.json();
-						console.log(responseJson.message);
-						throw new Error(responseJson.message || 'Erro ao autenticar usuário');
+						const text = await response.text();
+						let message = 'Erro ao autenticar usuário';
+						try {
+							const contentType = response.headers.get('content-type') ?? '';
+							if (contentType.includes('application/json')) {
+								message = JSON.parse(text).message || message;
+							}
+						} catch { /* non-JSON error body */ }
+						console.log(message);
+						throw new Error(message);
 					}
 				}
 				return {

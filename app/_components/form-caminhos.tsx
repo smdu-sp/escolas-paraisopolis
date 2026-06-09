@@ -12,12 +12,21 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+
+const MapComponent = dynamic(() => import("@/components/map"), { ssr: false });
+
+const geojsonUrls = (process.env.NEXT_PUBLIC_GEOJSON_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
+const rawKmzUrls = (process.env.NEXT_PUBLIC_KMZ_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
+const wmsLayers: { url: string; params: Record<string, string>; serverType?: 'qgis' | 'geoserver' }[] =
+    process.env.NEXT_PUBLIC_QGIS_WMS_URL
+        ? [{ url: process.env.NEXT_PUBLIC_QGIS_WMS_URL, params: { LAYERS: process.env.NEXT_PUBLIC_QGIS_WMS_LAYERS || 'all', TILED: 'true' }, serverType: 'qgis' }]
+        : [];
 
 interface Questionario {
     escola: number;
@@ -110,8 +119,6 @@ export default function FormCaminhos() {
             setCenter({ lat: center.lng, lng: center.lat, nomeLocal: center.nomeLocal || '' });
         }
     }, [center]);
-    const geojsonUrls = (process.env.NEXT_PUBLIC_GEOJSON_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
-    const kmzUrls = (process.env.NEXT_PUBLIC_KMZ_URLS || '').split(',').map(u => u.trim()).filter(Boolean);
     const [kmzAutoUrls, setKmzAutoUrls] = useState<string[]>([]);
     useEffect(() => {
         const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -123,6 +130,26 @@ export default function FormCaminhos() {
     const steps = 15;
     const [confirmOpen, setConfirmOpen] = useState(false);
     const isMobile = useIsMobile();
+    const kmzUrlsProp = useMemo(() => {
+        const base = rawKmzUrls.length ? rawKmzUrls : kmzAutoUrls;
+        return base.filter(u => step === 7
+            ? (decodeURIComponent(u.split('/').pop() || '') === 'SIRGAS_SHP_distrito.kmz')
+            : true);
+    }, [kmzAutoUrls, step]);
+    const mapCenter = useMemo(
+        () => center && typeof center.lng === 'number' && typeof center.lat === 'number'
+            ? [center.lng, center.lat] as [number, number]
+            : undefined,
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [center?.lat, center?.lng]
+    );
+    const mapMarkers = useMemo(() => [
+        ...escolas.map((e) => ({ ...e, type: (+e.id === resposta.escola) ? 'school_selected' : 'school' } as MapMarker)),
+        ...(resposta.partida ? [{ id: 'partida', coordinates: [resposta.partida.lng, resposta.partida.lat] as [number, number], type: 'house' as const, title: resposta.partida.nomeLocal || 'Casa' }] : []),
+        ...(resposta.reuniao ? [{ id: 'reuniao', coordinates: [resposta.reuniao.lng, resposta.reuniao.lat] as [number, number], type: 'selected' as const, title: resposta.reuniao.nomeLocal || 'Reunião' }] : []),
+        ...((resposta.referencias || []).map((ref, idx) => ({ id: `ref-${idx}`, coordinates: [ref.lng, ref.lat] as [number, number], type: 'selected' as const, title: ref.nomeLocal || 'Referência' }))),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    ], [resposta.escola, resposta.partida, resposta.reuniao, resposta.referencias]);
 
     async function handleSaveForm() {
         const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -220,37 +247,13 @@ export default function FormCaminhos() {
 
     const progressValue = (step / (steps)) * 100;
     const mapSteps = [7, 9, 14];
-    const MapComponent = dynamic(() => import("@/components/map"), { ssr: false });
     const isMapStep = mapSteps.includes(step);
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (<>
         <MapComponent
             className={isMapStep ? '' : 'hidden md:block pointer-events-none'}
-            center={center && typeof center.lng === 'number' && typeof center.lat === 'number' ? [center.lng, center.lat] : undefined}
-            markers={[
-                ...escolas.map((e) => ({
-                    ...e,
-                    type: (+e.id === resposta.escola) ? 'school_selected' : 'school'
-                } as MapMarker)),
-                ...(resposta.partida ? [{
-                    id: 'partida',
-                    coordinates: [resposta.partida.lng, resposta.partida.lat],
-                    type: 'house',
-                    title: resposta.partida.nomeLocal || 'Casa'
-                } as MapMarker] : []),
-                ...(resposta.reuniao ? [{
-                    id: 'reuniao',
-                    coordinates: [resposta.reuniao.lng, resposta.reuniao.lat],
-                    type: 'selected',
-                    title: resposta.reuniao.nomeLocal || 'Reunião'
-                } as MapMarker] : []),
-                ...((resposta.referencias || []).map((ref, idx) => ({
-                    id: `ref-${idx}`,
-                    coordinates: [ref.lng, ref.lat],
-                    type: 'selected',
-                    title: ref.nomeLocal || 'Referência'
-                } as MapMarker)))
-            ]}
+            center={mapCenter}
+            markers={mapMarkers}
             onEmptyClick={(coordinates) => {
                 if (step === 7) {
                     setResposta({
@@ -258,8 +261,6 @@ export default function FormCaminhos() {
                         partida: { lat: coordinates[1], lng: coordinates[0], nomeLocal: 'Casa' }
                     });
                     setCenter({ lat: coordinates[1], lng: coordinates[0], nomeLocal: 'Casa' });
-                } else if (step === 9) {
-                } else if (step === 14) {
                 }
             }}
             enableReferenceSelection={[9,14].includes(step)}
@@ -271,21 +272,16 @@ export default function FormCaminhos() {
                         referencias: [...(resposta.referencias || []), novaRef]
                     });
                 } else if (step === 14) {
-                    const reuniao = { lat: coords[1], lng: coords[0], nomeLocal: nome || 'Reunião' };
                     setResposta({
                         ...resposta,
-                        reuniao
+                        reuniao: { lat: coords[1], lng: coords[0], nomeLocal: nome || 'Reunião' }
                     });
                 }
             }}
             singleSelection={step === 14}
             geojsonUrls={geojsonUrls}
-            kmzUrls={(kmzUrls.length ? kmzUrls : kmzAutoUrls).filter(u => step === 7 ? (decodeURIComponent(u.split('/').pop() || '') === 'SIRGAS_SHP_distrito.kmz') : true)}
-            wmsLayers={process.env.NEXT_PUBLIC_QGIS_WMS_URL ? [{
-                url: process.env.NEXT_PUBLIC_QGIS_WMS_URL as string,
-                params: { LAYERS: process.env.NEXT_PUBLIC_QGIS_WMS_LAYERS || 'all', TILED: 'true' },
-                serverType: 'qgis'
-            }] : []}
+            kmzUrls={kmzUrlsProp}
+            wmsLayers={wmsLayers}
         />
         {step === 7 && <SelecionarCasa canForward={!!resposta.partida} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}

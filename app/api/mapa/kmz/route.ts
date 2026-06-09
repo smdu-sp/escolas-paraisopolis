@@ -3,7 +3,7 @@ import { open } from 'shapefile'
 import proj4 from 'proj4'
 import fs from 'fs'
 import path from 'path'
-import tokml from 'tokml'
+import { geojsonToKml } from '@/lib/geojson-to-kml'
 import JSZip from 'jszip'
 
 export const runtime = 'nodejs'
@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
     }
 
     const fc = { type: 'FeatureCollection', features }
-    const kml = tokml(fc, { simplestyle: true })
+    const kml = geojsonToKml(fc, { simplestyle: true })
 
     const zip = new JSZip()
     zip.file('doc.kml', kml)

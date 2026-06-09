@@ -2,7 +2,7 @@ import fs from 'fs'
 import path from 'path'
 import * as shapefile from 'shapefile'
 import proj4 from 'proj4'
-import tokml from 'tokml'
+import { geojsonToKml } from '../lib/geojson-to-kml'
 import JSZip from 'jszip'
 
 function transformCoordinates(coords: any, transform: (c: [number, number]) => [number, number]): any {
@@ -57,7 +57,7 @@ async function convertOne(baseDir: string, baseName: string, outDir: string) {
   }
 
   const fc = { type: 'FeatureCollection', features }
-  const kml = tokml(fc, { simplestyle: true })
+  const kml = geojsonToKml(fc, { simplestyle: true })
 
   const zip = new JSZip()
   zip.file('doc.kml', kml)
