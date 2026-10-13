@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start -p 3010",
     "lint": "next lint",
+    "audit:prod": "npm audit --omit=dev",
     "db:seed": "npx prisma db seed",
     "db:reset": "npx prisma migrate reset && npx prisma db seed",
     "docker:build": "docker build -t escolas-paraisopolis:standalone .",
@@ -78,7 +79,8 @@
     "seed": "npx tsx prisma/seed.ts"
   },
   "overrides": {
-    "postcss": "^8.5.10"
+    "postcss": "^8.5.10",
+    "deepmerge-ts": "^8.0.2"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
