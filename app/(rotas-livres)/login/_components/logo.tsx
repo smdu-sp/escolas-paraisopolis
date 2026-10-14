@@ -20,7 +20,7 @@ export default function Logo() {
     return <Image
         width={1200}
         height={1200}
-        src={`${basePath}/${tema === "dark" ? "/logo_claro.png" : "/logo_escuro.png"}`}
+        src={`${basePath}${tema === "dark" ? "/logo_claro.png" : "/logo_escuro.png"}`}
         alt="LOGO PREFEITURA DE SÃO PAULO"
     />
 }

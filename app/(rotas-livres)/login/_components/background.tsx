@@ -21,7 +21,7 @@ export default function Background() {
     return <Image
             width={800}
             height={800}
-            src={`${basePath}/${tema === "dark" ? "/martinelli_noite.jpeg" : "/martinelli_dia.jpg"}`}
+            src={`${basePath}${tema === "dark" ? "/martinelli_noite.jpeg" : "/martinelli_dia.jpg"}`}
             alt="Edíficio Martinelli"
             className="absolute inset-0 h-full w-full object-cover md:hidden"
         />

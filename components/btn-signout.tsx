@@ -13,7 +13,7 @@ export default function BtnSignOut() {
 			variant={'ghost'}
 			className='w-full dark:bg-destructive hover:bg-destructive/10 dark:text-foreground dark:hover:bg-destructive/80 hover:text-destructive text-destructive flex items-center justify-center'
 			onClick={async () => {
-				await signOut({ redirect: true, redirectTo: '/login' });
+				await signOut({ redirect: true, redirectTo: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/login` });
 			}}>
 			<LogOut className='text-destructive dark:text-foreground' /> Sair
 		</Button>

@@ -8,7 +8,7 @@ const cookiePrefix = 'caminhos-escolares';
 
 export const { auth, handlers, signIn, signOut, unstable_update } = NextAuth({
 	session: { strategy: 'jwt' },
-	basePath: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/api/auth`,
+	basePath: '/api/auth',
 	cookies: {
 		sessionToken: {
 			name: `${cookiePrefix}.session-token`,

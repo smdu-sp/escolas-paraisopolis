@@ -72,3 +72,13 @@ bun start
 ```
 
 Abra [http://localhost:3001](http://localhost:3001) com o navegador.
+
+## Auditoria de vulnerabilidades
+
+```bash
+npm run audit:prod
+```
+
+Este é o comando usado para validar vulnerabilidades antes de um deploy. Ele audita apenas as dependências de produção (`--omit=dev`), que são as únicas que chegam à imagem Docker final (build `standalone` — veja o [Dockerfile](Dockerfile)). Hoje ele retorna 0 vulnerabilidades.
+
+O `npm audit` completo (incluindo devDependencies) pode reportar vulnerabilidades em ferramentas de lint/build (ex: `braces`, via `eslint-config-next`) que não possuem correção disponível no momento. Essas dependências nunca são empacotadas na imagem final, então não representam risco em produção. Revisite periodicamente com `npm audit` (sem `--omit=dev`) para verificar se já existe correção upstream.
