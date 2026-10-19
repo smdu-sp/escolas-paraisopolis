@@ -5,17 +5,18 @@ import fs from 'fs'
 import path from 'path'
 import { geojsonToKml } from '@/lib/geojson-to-kml'
 import JSZip from 'jszip'
+import type { GeoJsonCoordinates, GeoJsonFeature } from '@/types/geojson'
 
 export const runtime = 'nodejs'
 
-function transformCoordinates(coords: any, transform: (c: [number, number]) => [number, number]): any {
+function transformCoordinates(coords: GeoJsonCoordinates, transform: (c: [number, number]) => [number, number]): GeoJsonCoordinates {
   if (!Array.isArray(coords)) return coords
   if (coords.length === 0) return coords
   if (typeof coords[0] === 'number') {
     const [x, y] = coords as [number, number]
     return transform([x, y])
   }
-  return coords.map((c) => transformCoordinates(c, transform))
+  return (coords as GeoJsonCoordinates[]).map((c) => transformCoordinates(c, transform))
 }
 
 export async function GET(req: NextRequest) {
@@ -48,17 +49,16 @@ export async function GET(req: NextRequest) {
     const transform = (c: [number, number]) => (sourceProj === 'WGS84' ? c : proj4(sourceProj, 'WGS84', c))
 
     const source = await open(shpPath, dbfPath)
-    const features: any[] = []
+    const features: GeoJsonFeature[] = []
     while (true) {
       const result = await source.read()
-      if (result.done) break
-      const val: any = result.value
-      const geom = val.geometry
+      if (result.done || !result.value) break
+      const geom = result.value.geometry
       const transformed = {
         type: geom.type,
-        coordinates: transformCoordinates(geom.coordinates, transform),
+        coordinates: geom.coordinates ? transformCoordinates(geom.coordinates, transform) : geom.coordinates,
       }
-      features.push({ type: 'Feature', properties: val.properties, geometry: transformed })
+      features.push({ type: 'Feature', properties: result.value.properties, geometry: transformed })
     }
 
     const fc = { type: 'FeatureCollection', features }
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
         'content-disposition': `attachment; filename="${safeBase}.kmz"`
       }
     })
-  } catch (e) {
+  } catch {
     return new Response('failed to convert shapefile', { status: 500 })
   }
 }

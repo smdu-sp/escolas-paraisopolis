@@ -1,3 +1,5 @@
+import type { GeoJsonFeature, GeoJsonFeatureCollection, GeoJsonGeometry } from '@/types/geojson'
+
 type Coord = [number, number] | [number, number, number]
 
 function escapeXml(s: unknown): string {
@@ -17,11 +19,11 @@ function ringToKml(ring: Coord[]): string {
   return `<LinearRing><coordinates>${ring.map(coordToKml).join(' ')}</coordinates></LinearRing>`
 }
 
-function geometryToKml(geom: any): string {
+function geometryToKml(geom: GeoJsonGeometry | undefined): string {
   if (!geom) return ''
   switch (geom.type) {
     case 'Point':
-      return `<Point><coordinates>${coordToKml(geom.coordinates)}</coordinates></Point>`
+      return `<Point><coordinates>${coordToKml(geom.coordinates as Coord)}</coordinates></Point>`
     case 'MultiPoint':
       return `<MultiGeometry>${(geom.coordinates as Coord[]).map((c) => `<Point><coordinates>${coordToKml(c)}</coordinates></Point>`).join('')}</MultiGeometry>`
     case 'LineString':
@@ -33,9 +35,9 @@ function geometryToKml(geom: any): string {
       return `<Polygon><outerBoundaryIs>${ringToKml(outer)}</outerBoundaryIs>${holes.map((h) => `<innerBoundaryIs>${ringToKml(h)}</innerBoundaryIs>`).join('')}</Polygon>`
     }
     case 'MultiPolygon':
-      return `<MultiGeometry>${(geom.coordinates as Coord[][][]).map((poly) => geometryToKml({ type: 'Polygon', coordinates: poly })).join('')}</MultiGeometry>`
+      return `<MultiGeometry>${(geom.coordinates as unknown as Coord[][][]).map((poly) => geometryToKml({ type: 'Polygon', coordinates: poly })).join('')}</MultiGeometry>`
     case 'GeometryCollection':
-      return `<MultiGeometry>${(geom.geometries as any[]).map(geometryToKml).join('')}</MultiGeometry>`
+      return `<MultiGeometry>${(geom.geometries ?? []).map(geometryToKml).join('')}</MultiGeometry>`
     default:
       return ''
   }
@@ -47,29 +49,30 @@ function hexToKmlColor(hex: string, opacity: number): string {
   return `${a}${h.slice(4, 6)}${h.slice(2, 4)}${h.slice(0, 2)}`
 }
 
-function styleToKml(props: Record<string, any>): string {
+function styleToKml(props: Record<string, unknown>): string {
   const parts: string[] = []
-  if (props['marker-color']) {
-    parts.push(`<IconStyle><color>${hexToKmlColor(props['marker-color'], 1)}</color></IconStyle>`)
+  const markerColor = props['marker-color']
+  if (markerColor) {
+    parts.push(`<IconStyle><color>${hexToKmlColor(String(markerColor), 1)}</color></IconStyle>`)
   }
-  const stroke = props['stroke']
-  const strokeOpacity = props['stroke-opacity'] ?? 1
-  const strokeWidth = props['stroke-width'] ?? 2
+  const stroke = props['stroke'] as string | undefined
+  const strokeOpacity = (props['stroke-opacity'] as number | undefined) ?? 1
+  const strokeWidth = (props['stroke-width'] as number | undefined) ?? 2
   if (stroke || strokeWidth !== 2) {
     parts.push(`<LineStyle><color>${hexToKmlColor(stroke ?? '#555555', strokeOpacity)}</color><width>${strokeWidth}</width></LineStyle>`)
   }
-  const fill = props['fill']
-  const fillOpacity = props['fill-opacity'] ?? 0.5
+  const fill = props['fill'] as string | undefined
+  const fillOpacity = (props['fill-opacity'] as number | undefined) ?? 0.5
   if (fill) {
     parts.push(`<PolyStyle><color>${hexToKmlColor(fill, fillOpacity)}</color></PolyStyle>`)
   }
   return parts.length ? `<Style>${parts.join('')}</Style>` : ''
 }
 
-function featureToKml(feature: any, simplestyle: boolean): string {
-  const props: Record<string, any> = feature.properties ?? {}
-  const name = props.name ?? props.Name ?? props.NAME ?? ''
-  const description = props.description ?? props.Description ?? ''
+function featureToKml(feature: GeoJsonFeature, simplestyle: boolean): string {
+  const props = feature.properties ?? {}
+  const name = (props.name ?? props.Name ?? props.NAME ?? '') as string
+  const description = (props.description ?? props.Description ?? '') as string
   const geomKml = geometryToKml(feature.geometry)
   if (!geomKml) return ''
   return [
@@ -82,12 +85,12 @@ function featureToKml(feature: any, simplestyle: boolean): string {
   ].filter(Boolean).join('')
 }
 
-export function geojsonToKml(geojson: any, opts: { simplestyle?: boolean } = {}): string {
+export function geojsonToKml(geojson: GeoJsonFeatureCollection | GeoJsonFeature | GeoJsonGeometry, opts: { simplestyle?: boolean } = {}): string {
   const { simplestyle = false } = opts
   let placemarks: string[]
-  if (geojson.type === 'FeatureCollection') {
-    placemarks = (geojson.features as any[]).map((f) => featureToKml(f, simplestyle))
-  } else if (geojson.type === 'Feature') {
+  if ('features' in geojson) {
+    placemarks = geojson.features.map((f) => featureToKml(f, simplestyle))
+  } else if ('geometry' in geojson) {
     placemarks = [featureToKml(geojson, simplestyle)]
   } else {
     const g = geometryToKml(geojson)

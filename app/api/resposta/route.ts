@@ -23,7 +23,6 @@ export async function POST(
 ) {
     const data = await request.json();
     const {
-      escola,
       escolaInfo,
       alunos,
       transporteIda,
@@ -38,7 +37,6 @@ export async function POST(
       temReuniao,
       usuarioIdOpcional,
     }: {
-      escola: number;
       escolaInfo?: EscolaInfo;
       alunos: (string | Date)[];
       transporteIda: string[];
@@ -131,7 +129,7 @@ export async function POST(
       const criancasData = (alunos || [])
         .map((d) => {
           const dt = typeof d === "string" ? new Date(d) : d;
-          return isNaN(dt as any) ? null : dt;
+          return isNaN(dt.getTime()) ? null : dt;
         })
         .filter(Boolean)
         .map((dt) => ({ respostaId, dataNascimento: dt as Date }));
@@ -174,7 +172,8 @@ export async function POST(
       if (sugestoesData.length) await db.sugestao.createMany({ data: sugestoesData });
 
       return new Response(JSON.stringify({ ok: true, id: respostaId }), { headers: { 'content-type': 'application/json' } });
-    } catch (e: any) {
-      return new Response(JSON.stringify({ ok: false, error: e?.message || 'erro' }), { status: 500, headers: { 'content-type': 'application/json' } });
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'erro';
+      return new Response(JSON.stringify({ ok: false, error: message }), { status: 500, headers: { 'content-type': 'application/json' } });
     }
 }

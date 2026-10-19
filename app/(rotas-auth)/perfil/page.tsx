@@ -1,7 +1,6 @@
 /** @format */
 
 import { AvatarUploader } from '@/components/avatar-uploader';
-import { Badge } from '@/components/ui/badge';
 import {
 	Card,
 	CardContent,
@@ -18,7 +17,7 @@ export default async function Perfil() {
 	const session = await auth();
 
   if (!session) {
-    redirect(`${process.env.NEXT_PUBLIC_BASE_PATH || ''}/login`);
+    redirect('/login');
   }
 
 	const usuario = await meuUsuario(session?.user.id);

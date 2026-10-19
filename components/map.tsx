@@ -25,15 +25,18 @@ import { useTheme } from "next-themes";
 import TileWMS from 'ol/source/TileWMS';
 import GeoJSON from 'ol/format/GeoJSON';
 import KML from 'ol/format/KML';
+import SimpleGeometry from 'ol/geom/SimpleGeometry';
 import JSZip from 'jszip';
 
 export interface MapMarker {
   id: string;
-  coordinates: [number, number] | any; // [longitude, latitude]
+  coordinates: [number, number]; // [longitude, latitude]
   type: 'school' | 'house' | 'default' | 'selected' | 'school_selected';
   title?: string;
   description?: string;
 }
+
+type KmzLayer = VectorLayer<VectorSource> & { fileName?: string };
 
 interface MapComponentProps {
   center?: [number, number]; // [longitude, latitude]
@@ -65,7 +68,7 @@ export default function MapComponent({
 }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<Map | null>(null);
-  const tileLayerRef = useRef<TileLayer<any> | null>(null);
+  const tileLayerRef = useRef<TileLayer<OSM> | null>(null);
   const markersLayerRef = useRef<VectorLayer<VectorSource> | null>(null);
   
   const [selectedMarker, setSelectedMarker] = useState<MapMarker | null>(null);
@@ -74,7 +77,7 @@ export default function MapComponent({
   const { theme } = useTheme();
   const [hasSelectedEscolaPin, setHasSelectedEscolaPin] = useState<boolean>(false);
   const selectedKmzRefsRef = useRef<Set<string>>(new Set());
-  const kmzLayersRef = useRef<VectorLayer<VectorSource>[]>([]);
+  const kmzLayersRef = useRef<KmzLayer[]>([]);
   const lastClickedFeatureRef = useRef<Feature | null>(null);
   const [selectedName, setSelectedName] = useState<string>('');
 
@@ -290,14 +293,14 @@ export default function MapComponent({
         const format = new KML({ extractStyles: false });
         const features = format.readFeatures(kmlText, { dataProjection: 'EPSG:4326', featureProjection: 'EPSG:3857' });
         const source = new VectorSource({ features });
-        const layer = new VectorLayer({ source });
+        const layer = new VectorLayer({ source }) as KmzLayer;
         const fileName = decodeURIComponent(url.split('/').pop() || '').replace(/\.kmz$/i, '');
-        (layer as any).fileName = fileName;
+        layer.fileName = fileName;
         if (fileName === 'SIRGAS_SHP_distrito') {
           layer.setZIndex(10);
         } else if (fileName === 'Locais_oficina') {
           layer.setZIndex(30);
-          (layer as any).setDeclutter?.(true);
+          layer.setDeclutter(true);
         } else {
           layer.setZIndex(20);
         }
@@ -307,14 +310,15 @@ export default function MapComponent({
           const isLocais = fileName === 'Locais_oficina';
           if (type === 'Point' || type === 'MultiPoint') {
             if (isLocais) {
-              const props = (feature as any).getProperties ? (feature as any).getProperties() : {};
+              const props = feature.getProperties();
               const keys = Object.keys(props).filter((k: string) => k !== 'geometry');
-              const firstText = keys.map((k: string) => props[k]).find((v: any) => typeof v === 'string' && v.trim().length > 0) || '';
+              const firstText = keys.map((k: string) => props[k]).find((v: unknown) => typeof v === 'string' && v.trim().length > 0) || '';
               const nome = feature.get('nome') || feature.get('name') || feature.get('NOME') || feature.get('description') || firstText;
               const isFlagSelected = !!feature.get('selected');
               let coordKey = '';
               try {
-                const c = toLonLat((feature.getGeometry() as any).getCoordinates());
+                const geom = feature.getGeometry() as SimpleGeometry;
+                const c = toLonLat(geom.getCoordinates() as [number, number]);
                 coordKey = `${c[0].toFixed(6)},${c[1].toFixed(6)}`;
               } catch {}
               const isSelected = isFlagSelected || selectedKmzRefsRef.current.has(coordKey);
@@ -360,17 +364,17 @@ export default function MapComponent({
       const geomType = feature?.getGeometry()?.getType();
       const isPoint = geomType === 'Point' || geomType === 'MultiPoint';
       if (feature && isPoint) {
-        const props = (feature as any).getProperties ? (feature as any).getProperties() : {};
+        const props = feature.getProperties();
         const keys = Object.keys(props).filter((k: string) => k !== 'geometry');
         const title = feature.get('title') || feature.get('name') || feature.get('NOME') || feature.get('nome') || 'Local';
         const descProp = feature.get('description');
         const details = descProp ? descProp : keys.map((k: string) => `${k}: ${props[k]}`).join('\n');
         let coords: [number, number] = [0, 0];
         try {
-          const geom: any = feature.getGeometry();
-          const viewCoord = typeof geom.getClosestPoint === 'function'
+          const geom = feature.getGeometry() as SimpleGeometry;
+          const viewCoord = (typeof geom.getClosestPoint === 'function'
             ? geom.getClosestPoint(event.coordinate)
-            : geom.getCoordinates();
+            : geom.getCoordinates()) as [number, number];
           const c = toLonLat(viewCoord);
           coords = [c[0], c[1]];
         } catch {}
@@ -510,8 +514,8 @@ export default function MapComponent({
     let coords = selectedMarker.coordinates as [number, number];
     if (!coords || coords[0] == null || coords[1] == null || (coords[0] === 0 && coords[1] === 0)) {
       try {
-        const geom: any = lastClickedFeatureRef.current?.getGeometry();
-        const c = toLonLat(geom.getCoordinates());
+        const geom = lastClickedFeatureRef.current?.getGeometry() as SimpleGeometry | undefined;
+        const c = toLonLat(geom!.getCoordinates() as [number, number]);
         coords = [c[0], c[1]];
       } catch {}
     }
@@ -519,7 +523,7 @@ export default function MapComponent({
     selectedKmzRefsRef.current.add(key);
     if (singleSelection) {
       kmzLayersRef.current
-        .filter((l: any) => l?.fileName === 'Locais_oficina')
+        .filter((l) => l.fileName === 'Locais_oficina')
         .forEach(l => {
           const src = l.getSource();
           src?.getFeatures().forEach(f => {
@@ -529,7 +533,7 @@ export default function MapComponent({
     }
     if (lastClickedFeatureRef.current) {
       lastClickedFeatureRef.current.set('selected', true);
-      try { (lastClickedFeatureRef.current as any).changed?.(); } catch {}
+      lastClickedFeatureRef.current.changed();
     }
     kmzLayersRef.current.forEach(l => l.changed());
     if (typeof onSelectReferenceRef.current === 'function') {

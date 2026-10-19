@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import type { MapMarker } from "@/components/map";
 import dynamic from "next/dynamic";
-import { Undo2, Plus, Trash2, Radio } from "lucide-react";
+import { Undo2, Plus, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -40,7 +40,7 @@ interface Questionario {
     problemas: Problema[];
     sugestoes: Sugestao[];
     reuniao?: Coordenadas;
-    temReuniao: Boolean;
+    temReuniao: boolean;
 }
 
 interface Coordenadas {
@@ -70,7 +70,7 @@ export default function FormCaminhos() {
     const [mounted, setMounted] = useState(false);
     
     const [step, setStep] = useLocalStorage('form-caminhos-step', 0);
-    const [concluido, setConcluido] = useLocalStorage('form-caminhos-concluido', false);
+    const [, setConcluido] = useLocalStorage('form-caminhos-concluido', false);
     const [center, setCenter] = useLocalStorage<Coordenadas>('form-caminhos-center', {
         lat: -23.6157664,
         lng: -46.7268192,
@@ -148,7 +148,6 @@ export default function FormCaminhos() {
         ...(resposta.partida ? [{ id: 'partida', coordinates: [resposta.partida.lng, resposta.partida.lat] as [number, number], type: 'house' as const, title: resposta.partida.nomeLocal || 'Casa' }] : []),
         ...(resposta.reuniao ? [{ id: 'reuniao', coordinates: [resposta.reuniao.lng, resposta.reuniao.lat] as [number, number], type: 'selected' as const, title: resposta.reuniao.nomeLocal || 'Reunião' }] : []),
         ...((resposta.referencias || []).map((ref, idx) => ({ id: `ref-${idx}`, coordinates: [ref.lng, ref.lat] as [number, number], type: 'selected' as const, title: ref.nomeLocal || 'Referência' }))),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     ], [resposta.escola, resposta.partida, resposta.reuniao, resposta.referencias]);
 
     async function handleSaveForm() {
@@ -321,7 +320,7 @@ export default function FormCaminhos() {
                     {step === 10 && <Sentimentos resposta={resposta} setResposta={setResposta} />}
                     {step === 11 && <Problemas resposta={resposta} setResposta={setResposta} />}
                     {step === 12 && <Sugestoes resposta={resposta} setResposta={setResposta} />}
-                    {step === 13 && <ReuniaoPrevia resposta={resposta} setResposta={setResposta} />}
+                    {step === 13 && <ReuniaoPrevia />}
                     {step === 15 && <Agradecimento />}
                 </CardContent>
                 <CardFooter className={`${step > 0 ? 'md:justify-between' : 'flex justify-end'} max-sm:flex-col max-sm:gap-2`}>
@@ -517,7 +516,7 @@ const Escola = ({ resposta, setResposta }: StepsProps) => {
 }
 
 const Alunos = ({ resposta, setResposta }: StepsProps) => {
-    const garantirDatasValidas = (alunos: any[]) => {
+    const garantirDatasValidas = (alunos: unknown[]) => {
         return alunos.map(aluno => {
             if (aluno instanceof Date) {
                 return aluno;
@@ -1414,7 +1413,7 @@ const Sugestoes = ({ resposta, setResposta }: StepsProps) => {
     )
 }
 
-const ReuniaoPrevia = ({resposta, setResposta}: {resposta: Questionario, setResposta: (resposta: Questionario) => void}) => {
+const ReuniaoPrevia = () => {
     return (
         <>
             <div className="flex flex-col space-y-1">
