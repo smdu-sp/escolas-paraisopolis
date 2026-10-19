@@ -3,11 +3,11 @@
 import DataTable, { TableSkeleton } from '@/components/data-table';
 import { Filtros } from '@/components/filtros';
 import Pagination from '@/components/pagination';
-import { auth } from '@/auth';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { columns } from './_components/columns';
 import ModalUpdateAndCreate from './_components/modal-update-create';
-import { buscarUsuarios, IUsuarioPaginado } from '@/services/usuario';
+import { buscarUsuarios, IUsuarioPaginado, validaUsuario } from '@/services/usuario';
 import { Usuario } from '@prisma/client';
 
 export default async function UsuariosSuspense({
@@ -31,22 +31,24 @@ async function Usuarios({
 	const { busca = '', status = '', permissao = '' } = await searchParams;
 	let dados: Usuario[] = [];
 
-	const session = await auth();
-	if (session) {
-		const response = await buscarUsuarios(
-			+pagina,
-			+limite,
-			busca as string,
-			status as string,
-			permissao as string,
-		);
-		if (response) {
-			const paginado = response as IUsuarioPaginado;
-			pagina = paginado.pagina || 1;
-			limite = paginado.limite || 10;
-			total = paginado.total || 0;
-			dados = paginado.data || [];
-		}
+	const usuarioLogado = await validaUsuario();
+	if (!usuarioLogado || usuarioLogado.permissao !== 'DEV') {
+		redirect('/');
+	}
+
+	const response = await buscarUsuarios(
+		+pagina,
+		+limite,
+		busca as string,
+		status as string,
+		permissao as string,
+	);
+	if (response) {
+		const paginado = response as IUsuarioPaginado;
+		pagina = paginado.pagina || 1;
+		limite = paginado.limite || 10;
+		total = paginado.total || 0;
+		dados = paginado.data || [];
 	}
 
 	const statusSelect = [

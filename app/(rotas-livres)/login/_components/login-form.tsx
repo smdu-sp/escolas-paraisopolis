@@ -63,7 +63,7 @@ export function LoginForm() {
 				else if (resp.ok) {
 					console.log(resp.ok);
 					toast.success('Login realizado com sucesso.');
-					router.push('/')
+					router.push('/respostas')
 				}
 			}
 			// if (resp && resp.error) toast.error('Credenciais inválidas.');

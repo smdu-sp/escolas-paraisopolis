@@ -1,6 +1,6 @@
 /** @format */
 
-import { ChevronRight, House, LucideProps, Users } from 'lucide-react';
+import { ChevronRight, ClipboardList, House, LucideProps, Users } from 'lucide-react';
 
 import {
 	Collapsible,
@@ -33,7 +33,7 @@ export async function NavMain() {
 		>;
 		titulo: string;
 		url?: string;
-		permissao?: string;
+		permissoes?: string[];
 		subItens?: ISubMenu[];
 	}
 
@@ -55,9 +55,19 @@ export async function NavMain() {
 			icone: Users,
 			titulo: 'Usuários',
 			url: '/usuarios',
-			permissao: 'usuario_buscar_tudo',
+			permissoes: ['DEV'],
+		},
+		{
+			icone: ClipboardList,
+			titulo: 'Cadastros',
+			url: '/respostas',
+			permissoes: ['DEV', 'ADM'],
 		},
 	];
+
+	const menuAdminVisivel = menuAdmin.filter(
+		(item) => !item.permissoes || item.permissoes.includes(usuario?.permissao?.toString() || ''),
+	);
 
 	return (
 		<SidebarContent>
@@ -112,14 +122,11 @@ export async function NavMain() {
 						</SidebarMenu>
 					</>
 				)}
-				{menuAdmin &&
-					usuario &&
-					usuario.permissao &&
-					['DEV', 'ADM'].includes(usuario.permissao.toString()) && (
+				{menuAdminVisivel.length > 0 && (
 						<>
 							<SidebarGroupLabel>Administração</SidebarGroupLabel>
 							<SidebarMenu>
-								{menuAdmin.map((item) =>
+								{menuAdminVisivel.map((item) =>
 									item.subItens ? (
 										<Collapsible
 											key={item.titulo}

@@ -34,7 +34,7 @@ const formSchemaUsuario = z.object({
 	nome: z.string(),
 	login: z.string(),
 	email: z.string().email(),
-	permissao: z.enum(['DEV', 'TEC', 'ADM', 'USR']),
+	permissao: z.enum(['DEV', 'ADM']),
 });
 
 const formSchema = z.object({
@@ -54,8 +54,7 @@ export default function FormUsuario({ isUpdating, user }: FormUsuarioProps) {
 			email: user?.email || '',
 			login: user?.login || '',
 			nome: user?.nome || '',
-			permissao:
-				(user?.permissao as unknown as 'DEV' | 'TEC' | 'ADM' | 'USR') ?? 'USR',
+			permissao: (user?.permissao as unknown as 'DEV' | 'ADM') ?? 'ADM',
 		},
 	});
 
@@ -229,9 +228,7 @@ export default function FormUsuario({ isUpdating, user }: FormUsuarioProps) {
 									</FormControl>
 									<SelectContent>
 										<SelectItem value='DEV'>Desenvolvedor</SelectItem>
-										<SelectItem value='TEC'>Técnico</SelectItem>
 										<SelectItem value='ADM'>Administrador</SelectItem>
-										<SelectItem value='USR'>Usuário</SelectItem>
 									</SelectContent>
 								</Select>
 								<FormMessage />
