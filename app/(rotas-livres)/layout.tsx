@@ -3,7 +3,7 @@ import { auth } from "@/auth";
 
 export default async function RotasLivres({children}:{children: React.ReactNode}) {
   const session = await auth();
-  console.log(session);
-  if (session) redirect(process.env.NEXT_PUBLIC_BASE_PATH || '/');
+  // redirect() já acrescenta o basePath; mesmo destino do login bem-sucedido
+  if (session) redirect('/respostas');
   return <>{children}</>;
 }

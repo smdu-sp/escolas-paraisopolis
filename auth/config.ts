@@ -56,6 +56,19 @@ export const authConfig = {
 		}),
 	],
 	callbacks: {
+		// O padrão do Auth.js descarta caminhos relativos e cai na raiz do domínio,
+		// fora do basePath do app. Aceita caminhos relativos e URLs do mesmo domínio;
+		// qualquer outra coisa vai para o login do app.
+		redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
+			const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+			if (url.startsWith('/') && !url.startsWith('//')) {
+				return `${baseUrl}${url.startsWith(basePath) ? url : `${basePath}${url}`}`;
+			}
+			try {
+				if (new URL(url).origin === new URL(baseUrl).origin) return url;
+			} catch { /* URL inválida */ }
+			return `${baseUrl}${basePath}/login`;
+		},
 		// @eslint-disable-next-line
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		async jwt({ token, user }: any) {

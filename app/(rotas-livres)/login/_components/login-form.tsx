@@ -58,20 +58,15 @@ export function LoginForm() {
 			});
 			if (!resp) toast.error('Não foi possível realizar o login.');
 			if (resp) {
-				console.log(resp);
 				if (resp.error) toast.error('Credenciais incorretas.');
 				else if (resp.ok) {
-					console.log(resp.ok);
 					toast.success('Login realizado com sucesso.');
-					router.push('/respostas')
+					// replace: o "voltar" do navegador não retorna à tela de login;
+					// refresh: os layouts do servidor passam a enxergar a sessão nova
+					router.replace('/respostas');
+					router.refresh();
 				}
 			}
-			// if (resp && resp.error) toast.error('Credenciais inválidas.');
-			// if (resp && resp.ok) {
-			// 	console.log(resp.ok);
-			// 	toast.success('Login realizado com sucesso.');
-			// 	router.push('/')
-			// }
 		} catch (e) {
 			console.log(e);
 			toast.error('Não foi possível realizar o login.');
