@@ -10,15 +10,14 @@ import { Check, Link, RefreshCw } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
-import { atualizarUsuario } from '@/services/usuario';
-import { Usuario } from '@prisma/client';
+import { atualizarMeuPerfil } from '@/services/usuario-actions';
 
 interface AvatarUploaderProps {
 	avatarUrl: string;
 	id: string;
 }
 
-export function AvatarUploader({ avatarUrl, id }: AvatarUploaderProps) {
+export function AvatarUploader({ avatarUrl }: AvatarUploaderProps) {
 	const [inputUrl, setInputUrl] = useState('');
 	const [isValidating, setIsValidating] = useState(false);
 	const [showUrlInput, setShowUrlInput] = useState(false);
@@ -30,13 +29,13 @@ export function AvatarUploader({ avatarUrl, id }: AvatarUploaderProps) {
 
 		setIsValidating(true);
 		try {
-			const resp = await atualizarUsuario(id, { avatar: inputUrl });
-			console.log(resp);
-			if (!resp) {
-				toast.error('Algo deu errado');
+			const resp = await atualizarMeuPerfil({ avatar: inputUrl });
+			if (!resp.ok) {
+				toast.error(resp.erro);
+				return;
 			} else {
-				if (session?.user && resp) {	
-					const dataResp = resp as Usuario;
+				if (session?.user) {
+					const dataResp = resp.dados;
 					// Você precisará ajustar isso de acordo com a estrutura da sua sessão e da resposta da API
 					const updateSession = await update({
 						...session,

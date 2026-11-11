@@ -11,7 +11,7 @@ import {
 	FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { atualizarUsuario } from '@/services/usuario';
+import { atualizarMeuPerfil } from '@/services/usuario-actions';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Permissao, Usuario } from '@prisma/client';
 import { RefreshCcw } from 'lucide-react';
@@ -33,7 +33,7 @@ interface FormProfileProps {
 	id: string;
 }
 
-export default function FormProfile({ user, id }: FormProfileProps) {
+export default function FormProfile({ user }: FormProfileProps) {
 	const [isPending, startTransition] = useTransition();
 	const { data: session, update } = useSession();
 
@@ -50,19 +50,14 @@ export default function FormProfile({ user, id }: FormProfileProps) {
 
 	function onSubmit(values: z.infer<typeof formSchema>) {
 		startTransition(async () => {
-			const data: Partial<Usuario> = {
-				nome: values.nome,
-				login: values.login,
-				email: values.email,
-				permissao: values.permissao as Permissao,
-			};
 			try {
-				const resp = await atualizarUsuario(id, data);
-				if (!resp) {
-					toast.error('Algo deu errado');
+				// Só o nome é editável aqui; login, e-mail e permissão não mudam pelo perfil
+				const resp = await atualizarMeuPerfil({ nome: values.nome });
+				if (!resp.ok) {
+					toast.error(resp.erro);
 				} else {
-					if (session?.user && resp) {	
-						const dataResp = resp as Usuario;
+					if (session?.user) {
+						const dataResp = resp.dados;
 						// Você precisará ajustar isso de acordo com a estrutura da sua sessão e da resposta da API
 						const updateSession = await update({
 							...session,

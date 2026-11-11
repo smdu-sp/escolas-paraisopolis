@@ -1,16 +1,9 @@
+// Somente leitura e uso no servidor. Escritas em usuários ficam em
+// services/usuario-actions.ts (server actions com checagem de permissão).
 import { auth } from "@/auth";
 import { db } from "@/lib/prisma";
 import { verificaLimite, verificaPagina } from "@/lib/utils";
 import { Permissao, Usuario } from "@prisma/client";
-
-export interface IUsuarioCriar {
-    login: string;
-    email: string;
-    nome: string;
-    permissao?: Permissao;
-    avatar?: string;
-    status?: boolean;
-}
 
 export interface IUsuarioPaginado {
     data: Usuario[];
@@ -24,29 +17,10 @@ export async function meuUsuario(id: string) {
     return usuario;
 }
 
-export async function atualizarUsuario(id: string, data: Partial<Usuario>) {
-    const session = await auth();
-    if (!session?.user) return null;
-    const { id: sessionId } = session.user;
-    if (sessionId !== id) return null;
-    const permissao = await retornaPermissao(sessionId);
-    if (!permissao) return null;
-     if (!["DEV", "ADM"].includes(permissao) && id !== sessionId) return null;
-    const usuario = await buscarUsuarioPorId(id);
-    if (!usuario) return null;
-    const usuarioAtualizado = await db.usuario.update({ where: { id }, data });
-    return usuarioAtualizado;
-}
-
 export async function retornaPermissao(id: string) {
     const usuario = await buscarUsuarioPorId(id);
     if (!usuario) return null;
     return usuario.permissao;
-}
-
-export async function criarUsuario(data: IUsuarioCriar) {
-    const usuario = await db.usuario.create({ data });
-    return usuario;
 }
 
 export async function buscarUsuarios(
@@ -88,6 +62,8 @@ export async function validaUsuario() {
     if (!session?.user) return null;
     const { id } = session.user;
     const usuario = await db.usuario.findUnique({ where: { id }});
+    // Usuário desativado perde o acesso mesmo com sessão ainda válida
+    if (!usuario || !usuario.status) return null;
     return usuario;
 }
 

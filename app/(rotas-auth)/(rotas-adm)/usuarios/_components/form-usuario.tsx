@@ -2,7 +2,7 @@
 
 'use client';
 
-import { auth } from '@/auth';
+import { alterarPermissaoUsuario, buscarUsuarioNoLdap, criarUsuario } from '@/services/usuario-actions';
 import { Button } from '@/components/ui/button';
 import { DialogClose } from '@/components/ui/dialog';
 import {
@@ -21,7 +21,6 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from '@/components/ui/select';
-import { atualizarUsuario, criarUsuario } from '@/services/usuario';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Permissao, Usuario } from '@prisma/client';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -66,51 +65,39 @@ export default function FormUsuario({ isUpdating, user }: FormUsuarioProps) {
 	});
 
 	async function onSubmit(values: z.infer<typeof formSchema>) {
-		const session = await auth();
-		if (!session) {
-			toast.error('Não autorizado');
+		const resp = await buscarUsuarioNoLdap(values.login);
+		if (!resp.ok) {
+			toast.error(resp.erro);
 			return;
 		}
-		const { login } = values;
-		const resp = await fetch(`/api/ldap/buscar-por-login/${login}`);
-		if (resp.status !== 200) {
-			toast.error('Usuário não encontrado');
-			return;
-		}
-		const usuario = await resp.json();
-		if (usuario) {
-			toast.success('Usuário encontrado', { description: usuario.nome });
-			formUsuario.setValue('nome', usuario.nome);
-			formUsuario.setValue('email', usuario.email);
-			formUsuario.setValue('login', usuario.login);
-		}
+		const usuario = resp.dados;
+		toast.success('Usuário encontrado', { description: usuario.nome });
+		formUsuario.setValue('nome', usuario.nome);
+		formUsuario.setValue('email', usuario.email);
+		formUsuario.setValue('login', usuario.login);
 	}
 
 	async function onSubmitUser(values: z.infer<typeof formSchemaUsuario>) {
 		startTransition(async () => {
 			if (isUpdating && user?.id) {
-				const resp = await atualizarUsuario(user?.id, {
-					permissao: values.permissao as unknown as Permissao,
-				});
-				if (!resp)
-					toast.error('Algo deu errado');
-				if (resp) {
-					toast.success('Usuário Atualizado', { description: resp.status });
-					document.getElementById('close-dialog-voltar')?.click();
+				const resp = await alterarPermissaoUsuario(user.id, values.permissao as Permissao);
+				if (!resp.ok) {
+					toast.error(resp.erro);
+					return;
 				}
+				toast.success('Usuário atualizado', { description: resp.dados.nome });
+				document.getElementById('close-dialog-voltar')?.click();
+				window.location.reload();
 			} else {
 				const { email, login, nome, permissao } = values;
-				const resp = await criarUsuario({
-					email,
-					login,
-					nome,
-					permissao: permissao as unknown as Permissao,
-				});
-				if (!resp) toast.error('Algo deu errado');
-				if (resp) {
-					toast.success('Usuário Criado', { description: resp.status });
-					document.getElementById('close-dialog-voltar')?.click();
+				const resp = await criarUsuario({ email, login, nome, permissao: permissao as Permissao });
+				if (!resp.ok) {
+					toast.error(resp.erro);
+					return;
 				}
+				toast.success('Usuário criado', { description: resp.dados.nome });
+				document.getElementById('close-dialog-voltar')?.click();
+				window.location.reload();
 			}
 		});
 	}

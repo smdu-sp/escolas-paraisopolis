@@ -14,8 +14,9 @@ export const authConfig = {
 			authorize: async (credentials) => {
 				const { login, senha } = credentials ?? {};
 				if (!login || !senha) return null;
-				let usuario = await db.usuario.findUnique({ where: { login: login as string } });
-				if (!usuario) return null;
+				const usuario = await db.usuario.findUnique({ where: { login: (login as string).trim().toLowerCase() } });
+				// Usuário desativado ("excluído" na tela de Usuários) não entra
+				if (!usuario || !usuario.status) return null;
 				if (process.env.ENVIRONMENT !== "local"){
 					const response = await fetch(
 						`${process.env.AUTH_SERVER}ldap/autenticar`,
