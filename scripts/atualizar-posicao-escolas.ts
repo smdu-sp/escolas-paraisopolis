@@ -1,10 +1,12 @@
 /**
- * Atualiza a posição (e o endereço) das escolas usando o Prisma.
- * Os valores vêm de lib/escolas-padrao.ts (conferidos no OpenStreetMap, nov/2026).
+ * Sincroniza as escolas do banco com a lista oficial (lib/escolas-padrao.ts,
+ * vinda da planilha "Unidades_Caminhos Escolares.xlsx"), usando o Prisma.
  *
- *   * escolas existentes são atualizadas pelo nome (os ids não mudam, então as
+ *   * escolas existentes são encontradas pelo nome atual ou por um nome anterior e
+ *     têm nome, endereço e posição atualizados (os ids não mudam, então as
  *     respostas já gravadas continuam ligadas às mesmas escolas);
- *   * escolas que ainda não existem são criadas.
+ *   * escolas que ainda não existem são criadas;
+ *   * escolas do banco fora da lista são só listadas, nunca alteradas.
  *
  * Por padrão só MOSTRA o que mudaria. Para gravar, passe --aplicar:
  *
@@ -39,10 +41,14 @@ async function main() {
     const operacoes = [];
     let inalteradas = 0;
 
+    const usadas = new Set<string>();
     for (const padrao of ESCOLAS_PADRAO) {
-        const atual = existentes.find((e) => e.nome === padrao.nome);
+        const atual =
+            existentes.find((e) => e.nome === padrao.nome) ??
+            existentes.find((e) => !usadas.has(e.id) && padrao.nomesAnteriores?.includes(e.nome));
+        if (atual) usadas.add(atual.id);
         if (!atual) {
-            console.log(`+ CRIAR      ${padrao.nome}  (${padrao.latitude}, ${padrao.longitude})`);
+            console.log(`+ CRIAR      ${padrao.nome}  (${padrao.latitude}, ${padrao.longitude})${padrao.aproximada ? '  [posição aproximada]' : ''}`);
             operacoes.push(
                 prisma.escola.create({
                     data: {
@@ -61,23 +67,30 @@ async function main() {
         const mudouPosicao =
             Math.abs(lat - padrao.latitude) > TOLERANCIA || Math.abs(lng - padrao.longitude) > TOLERANCIA;
         const mudouEndereco = (atual.endereco ?? null) !== padrao.endereco;
-        if (!mudouPosicao && !mudouEndereco) {
+        const mudouNome = atual.nome !== padrao.nome;
+        if (!mudouPosicao && !mudouEndereco && !mudouNome) {
             inalteradas++;
             continue;
         }
 
         console.log(`~ ATUALIZAR  ${padrao.nome}`);
+        if (mudouNome) console.log(`    nome:     ${atual.nome}  ->  ${padrao.nome}`);
         if (mudouPosicao) console.log(`    posição:  (${lat}, ${lng})  ->  (${padrao.latitude}, ${padrao.longitude})`);
         if (mudouEndereco) console.log(`    endereço: ${atual.endereco ?? '(vazio)'}  ->  ${padrao.endereco ?? '(vazio)'}`);
         operacoes.push(
             prisma.escola.update({
                 where: { id: atual.id },
-                data: { endereco: padrao.endereco, latitude: padrao.latitude, longitude: padrao.longitude },
+                data: {
+                    nome: padrao.nome,
+                    endereco: padrao.endereco,
+                    latitude: padrao.latitude,
+                    longitude: padrao.longitude,
+                },
             }),
         );
     }
 
-    const outras = existentes.filter((e) => !ESCOLAS_PADRAO.some((p) => p.nome === e.nome));
+    const outras = existentes.filter((e) => !usadas.has(e.id));
     for (const e of outras) console.log(`= IGNORADA   ${e.nome} (não está na lista padrão, não foi alterada)`);
 
     console.log(`\n${operacoes.length} alteração(ões), ${inalteradas} já corretas.`);

@@ -1,5 +1,5 @@
 import { db } from "@/lib/prisma";
-import { ESCOLAS_PADRAO } from "@/lib/escolas-padrao";
+import { ESCOLAS_PADRAO, escolaPadraoPorNome } from "@/lib/escolas-padrao";
 
 export interface IEscola {
     id: string;
@@ -35,9 +35,9 @@ export async function garantirEscolas() {
             })),
         });
     }
-    for (const padrao of ESCOLAS_PADRAO) {
-        const registro = existentes.find((e) => e.nome === padrao.nome);
-        if (!registro) continue;
+    for (const registro of existentes) {
+        const padrao = escolaPadraoPorNome(registro.nome);
+        if (!padrao?.coordenadasAntigas) continue;
         const comCoordenadaAntiga =
             Math.abs(Number(registro.latitude) - padrao.coordenadasAntigas.latitude) < TOLERANCIA &&
             Math.abs(Number(registro.longitude) - padrao.coordenadasAntigas.longitude) < TOLERANCIA;
@@ -63,7 +63,7 @@ export async function listarEscolas(): Promise<IEscola[]> {
         endereco: e.endereco,
         latitude: Number(e.latitude),
         longitude: Number(e.longitude),
-        legadoId: ESCOLAS_PADRAO.find((p) => p.nome === e.nome)?.legadoId ?? null,
+        legadoId: escolaPadraoPorNome(e.nome)?.legadoId ?? null,
         qtdRespostas: e._count.respostas,
     }));
 }
