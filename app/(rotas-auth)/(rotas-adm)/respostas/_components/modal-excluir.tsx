@@ -20,13 +20,13 @@ export default function ModalExcluir({ id }: { id: string }) {
 	const [isPending, startTransition] = useTransition();
 
 	async function handleExcluir() {
-		try {
-			await excluirResposta(id);
-			toast.success('Cadastro excluído com sucesso');
-			window.location.reload();
-		} catch {
-			toast.error('Não foi possível excluir o cadastro');
+		const resp = await excluirResposta(id);
+		if (!resp.ok) {
+			toast.error(resp.erro);
+			return;
 		}
+		toast.success('Cadastro excluído com sucesso');
+		window.location.reload();
 	}
 
 	return (

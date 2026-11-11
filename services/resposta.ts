@@ -1,5 +1,6 @@
 import { db } from "@/lib/prisma";
-import { verificaLimite, verificaPagina } from "@/lib/utils";
+import { verificaData, verificaLimite, verificaPagina } from "@/lib/utils";
+import type { Prisma } from "@prisma/client";
 
 export interface IPontoResposta {
     id: string;
@@ -31,15 +32,20 @@ export interface IRespostaPaginado {
     limite: number;
 }
 
-export async function buscarRespostas(
-    pagina: number,
-    limite: number,
-    escolaId?: string,
-    dataInicio?: Date,
-    dataFim?: Date,
-): Promise<IRespostaPaginado> {
-    [pagina, limite] = verificaPagina(pagina, limite);
-    const where = {
+/** Converte os parâmetros de busca da tela (?escola=&periodo=dd-mm-aaaa,dd-mm-aaaa). */
+export function interpretarFiltroRespostas(escola?: string, periodo?: string) {
+    let dataInicio: Date | undefined;
+    let dataFim: Date | undefined;
+    if (periodo) {
+        const [inicioStr, fimStr] = periodo.split(',');
+        [dataInicio, dataFim] = verificaData(inicioStr, fimStr);
+    }
+    return { escolaId: escola || undefined, dataInicio, dataFim };
+}
+
+/** Filtro usado tanto na listagem quanto na exclusão "pelo filtro". */
+export function montarFiltroRespostas(escolaId?: string, dataInicio?: Date, dataFim?: Date): Prisma.RespostaWhereInput {
+    return {
         ...(escolaId && { escolaId }),
         ...((dataInicio || dataFim) && {
             criadoEm: {
@@ -48,6 +54,17 @@ export async function buscarRespostas(
             },
         }),
     };
+}
+
+export async function buscarRespostas(
+    pagina: number,
+    limite: number,
+    escolaId?: string,
+    dataInicio?: Date,
+    dataFim?: Date,
+): Promise<IRespostaPaginado> {
+    [pagina, limite] = verificaPagina(pagina, limite);
+    const where = montarFiltroRespostas(escolaId, dataInicio, dataFim);
     const total = await db.resposta.count({ where });
     if (total === 0) return { data: [], total, pagina, limite };
     [pagina, limite] = verificaLimite(pagina, limite, total);

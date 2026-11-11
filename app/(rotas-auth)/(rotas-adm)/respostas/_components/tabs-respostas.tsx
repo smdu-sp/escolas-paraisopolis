@@ -3,12 +3,15 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useEffect, useMemo, useState } from 'react';
+import type { RowSelectionState } from '@tanstack/react-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DataTable from '@/components/data-table';
 import { Filtros, TiposFiltros } from '@/components/filtros';
 import Pagination from '@/components/pagination';
 import { getColumns } from './columns';
 import Relatorios from './relatorios';
+import AcoesExclusao from './acoes-exclusao';
 import { IRelatorios, IRespostaDetalhada } from '@/services/resposta';
 
 const MapaCalor = dynamic(() => import('./mapa-calor'), { ssr: false });
@@ -34,6 +37,12 @@ export default function TabsRespostas({
 	pontosCalor,
 	podeExcluir,
 }: TabsRespostasProps) {
+	const [selecao, setSelecao] = useState<RowSelectionState>({});
+	// Nova página/filtro: a seleção anterior não vale mais
+	useEffect(() => setSelecao({}), [dados]);
+	const columns = useMemo(() => getColumns(podeExcluir), [podeExcluir]);
+	const selecionadas = Object.keys(selecao).filter((id) => selecao[id]);
+
 	return (
 		<Tabs defaultValue="lista" className="w-full my-5">
 			<TabsList>
@@ -58,7 +67,21 @@ export default function TabsRespostas({
 						},
 					]}
 				/>
-				<DataTable columns={getColumns(podeExcluir)} data={dados} />
+				{podeExcluir && (
+					<AcoesExclusao
+						selecionadas={selecionadas}
+						onLimparSelecao={() => setSelecao({})}
+						total={total}
+						escolas={escolas}
+					/>
+				)}
+				<DataTable
+					columns={columns}
+					data={dados}
+					getRowId={(r) => r.id}
+					rowSelection={podeExcluir ? selecao : undefined}
+					onRowSelectionChange={podeExcluir ? setSelecao : undefined}
+				/>
 				{dados.length > 0 && <Pagination total={total} pagina={pagina} limite={limite} />}
 			</TabsContent>
 

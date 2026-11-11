@@ -4,6 +4,8 @@
 
 import {
 	type ColumnDef,
+	type OnChangeFn,
+	type RowSelectionState,
 	flexRender,
 	getCoreRowModel,
 	useReactTable,
@@ -21,16 +23,27 @@ import { Skeleton } from './ui/skeleton';
 interface DataTableProps<TData, TValue> {
 	columns: ColumnDef<TData, TValue>[];
 	data: TData[];
+	/** Seleção de linhas (opcional). Quando informado, habilita a seleção. */
+	rowSelection?: RowSelectionState;
+	onRowSelectionChange?: OnChangeFn<RowSelectionState>;
+	getRowId?: (row: TData) => string;
 }
 
 export default function DataTable<TData, TValue>({
 	columns,
 	data,
+	rowSelection,
+	onRowSelectionChange,
+	getRowId,
 }: DataTableProps<TData, TValue>) {
 	const table = useReactTable({
 		data,
 		columns,
 		getCoreRowModel: getCoreRowModel(),
+		getRowId,
+		enableRowSelection: !!onRowSelectionChange,
+		onRowSelectionChange,
+		state: rowSelection ? { rowSelection } : undefined,
 	});
 	return (
 		<div className='rounded-md'>

@@ -9,10 +9,10 @@ import {
 	buscarPontosOrigem,
 	buscarRelatorios,
 	buscarRespostas,
+	interpretarFiltroRespostas,
 	IRespostaDetalhada,
 } from '@/services/resposta';
 import { validaUsuario } from '@/services/usuario';
-import { verificaData } from '@/lib/utils';
 
 export default async function RespostasSuspense({
 	searchParams,
@@ -34,12 +34,7 @@ async function Respostas({
 	let { pagina = 1, limite = 10, total = 0 } = await searchParams;
 	const { escola = '', periodo = '' } = await searchParams;
 
-	let dataInicio: Date | undefined;
-	let dataFim: Date | undefined;
-	if (periodo) {
-		const [inicioStr, fimStr] = (periodo as string).split(',');
-		[dataInicio, dataFim] = verificaData(inicioStr, fimStr);
-	}
+	const { dataInicio, dataFim } = interpretarFiltroRespostas(escola as string, periodo as string);
 
 	const usuarioLogado = await validaUsuario();
 	if (!usuarioLogado || !['DEV', 'ADM'].includes(usuarioLogado.permissao)) {
