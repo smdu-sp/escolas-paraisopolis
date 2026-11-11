@@ -68,6 +68,7 @@ async function Respostas({
 				escolas={escolas}
 				relatorios={relatorios}
 				pontosCalor={pontosCalor}
+				podeExcluir={usuarioLogado.permissao === 'DEV'}
 			/>
 		</div>
 	);

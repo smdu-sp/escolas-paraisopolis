@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import DataTable from '@/components/data-table';
 import { Filtros, TiposFiltros } from '@/components/filtros';
 import Pagination from '@/components/pagination';
-import { columns } from './columns';
+import { getColumns } from './columns';
 import Relatorios from './relatorios';
 import { IRelatorios, IRespostaDetalhada } from '@/services/resposta';
 
@@ -21,6 +21,7 @@ interface TabsRespostasProps {
 	escolas: { id: string; nome: string }[];
 	relatorios: IRelatorios;
 	pontosCalor: { lat: number; lng: number }[];
+	podeExcluir: boolean;
 }
 
 export default function TabsRespostas({
@@ -31,6 +32,7 @@ export default function TabsRespostas({
 	escolas,
 	relatorios,
 	pontosCalor,
+	podeExcluir,
 }: TabsRespostasProps) {
 	return (
 		<Tabs defaultValue="lista" className="w-full my-5">
@@ -56,7 +58,7 @@ export default function TabsRespostas({
 						},
 					]}
 				/>
-				<DataTable columns={columns} data={dados} />
+				<DataTable columns={getColumns(podeExcluir)} data={dados} />
 				{dados.length > 0 && <Pagination total={total} pagina={pagina} limite={limite} />}
 			</TabsContent>
 

@@ -9,6 +9,7 @@
     "lint": "next lint",
     "audit:prod": "npm audit --omit=dev",
     "db:seed": "npx prisma db seed",
+    "db:escolas": "npx tsx scripts/atualizar-posicao-escolas.ts",
     "db:reset": "npx prisma migrate reset && npx prisma db seed",
     "docker:build": "docker build -t escolas-paraisopolis:standalone .",
     "docker:run": "docker run -d --name escolas-paraisopolis -p 3010:3010 --env-file .env escolas-paraisopolis:standalone",

@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { BuscaEndereco, type ResultadoEndereco } from "@/components/busca-endereco";
+import type { IEscola } from "@/services/escola";
 
 const MapComponent = dynamic(() => import("@/components/map"), { ssr: false });
 
@@ -29,7 +31,8 @@ const wmsLayers: { url: string; params: Record<string, string>; serverType?: 'qg
         : [];
 
 interface Questionario {
-    escola: number;
+    /** id da escola no banco (formulários antigos guardavam um número) */
+    escola: string | number;
     alunos: Date[];
     transporteIda: string[];
     transporteVolta: string[];
@@ -76,8 +79,8 @@ export default function FormCaminhos() {
         lng: -46.7268192,
         nomeLocal: ''
     });
-    const respostaVazia = {
-        escola: 1,
+    const respostaVazia: Questionario = {
+        escola: '',
         alunos: [new Date()],
         transporteIda: [],
         transporteVolta: [],
@@ -111,9 +114,33 @@ export default function FormCaminhos() {
     }
     const [resposta, setResposta] = useLocalStorage<Questionario>('form-caminhos-data', respostaVazia);
     
+    const [escolasDb, setEscolasDb] = useState<IEscola[]>([]);
+    const escolas = useMemo<MapMarker[]>(() => escolasDb.map((e) => ({
+        id: e.id,
+        coordinates: [e.longitude, e.latitude],
+        type: 'school',
+        title: e.nome,
+        description: e.endereco || undefined,
+    })), [escolasDb]);
+
     useEffect(() => {
         setMounted(true);
+        const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+        fetch(`${basePath}/api/escolas`)
+            .then((r) => r.ok ? r.json() : Promise.reject())
+            .then((lista: IEscola[]) => setEscolasDb(lista))
+            .catch(() => toast.error('Não foi possível carregar a lista de escolas'));
     }, []);
+    useEffect(() => {
+        if (!escolasDb.length) return;
+        if (escolasDb.some((e) => e.id === resposta.escola)) return;
+        // Converte o id numérico antigo (localStorage) ou seleciona a primeira escola
+        const legado = typeof resposta.escola === 'number'
+            ? escolasDb.find((e) => e.legadoId === resposta.escola)
+            : undefined;
+        setResposta({ ...resposta, escola: (legado || escolasDb[0]).id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [escolasDb, resposta.escola]);
     useEffect(() => {
         if (center && Math.abs(center.lat) > 40 && Math.abs(center.lng) < 40) {
             setCenter({ lat: center.lng, lng: center.lat, nomeLocal: center.nomeLocal || '' });
@@ -144,22 +171,22 @@ export default function FormCaminhos() {
         [center?.lat, center?.lng]
     );
     const mapMarkers = useMemo(() => [
-        ...escolas.map((e) => ({ ...e, type: (+e.id === resposta.escola) ? 'school_selected' : 'school' } as MapMarker)),
+        ...escolas.map((e) => ({ ...e, type: (e.id === resposta.escola) ? 'school_selected' : 'school' } as MapMarker)),
         ...(resposta.partida ? [{ id: 'partida', coordinates: [resposta.partida.lng, resposta.partida.lat] as [number, number], type: 'house' as const, title: resposta.partida.nomeLocal || 'Casa' }] : []),
         ...(resposta.reuniao ? [{ id: 'reuniao', coordinates: [resposta.reuniao.lng, resposta.reuniao.lat] as [number, number], type: 'selected' as const, title: resposta.reuniao.nomeLocal || 'Reunião' }] : []),
         ...((resposta.referencias || []).map((ref, idx) => ({ id: `ref-${idx}`, coordinates: [ref.lng, ref.lat] as [number, number], type: 'selected' as const, title: ref.nomeLocal || 'Referência' }))),
-    ], [resposta.escola, resposta.partida, resposta.reuniao, resposta.referencias]);
+    ], [escolas, resposta.escola, resposta.partida, resposta.reuniao, resposta.referencias]);
 
     async function handleSaveForm() {
         const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-        const escolaSel = escolas.find((e) => +e.id === resposta.escola);
+        const escolaSel = escolas.find((e) => e.id === resposta.escola);
         if (!escolaSel) {
             toast.error('Selecione a escola antes de enviar');
             setStep(0);
             return;
         }
         const payload = {
-            escola: resposta.escola,
+            escolaId: escolaSel.id,
             escolaInfo: {
                 nome: escolaSel.title || String(resposta.escola),
                 endereco: escolaSel.description || undefined,
@@ -205,7 +232,7 @@ export default function FormCaminhos() {
     }
 
     function checkNewStep(newStep: number) {
-        const escola = escolas.find(escola => +escola.id === resposta.escola);
+        const escola = escolas.find(escola => escola.id === resposta.escola);
         switch(newStep) {
             case 7:
                 if (resposta.partida) {
@@ -242,6 +269,24 @@ export default function FormCaminhos() {
             return;
         }
         checkNewStep(step + 1);
+    }
+
+    function handleEnderecoSelecionado(r: ResultadoEndereco) {
+        const coords = { lat: r.lat, lng: r.lng };
+        if (step === 7) {
+            setResposta({ ...resposta, partida: { ...coords, nomeLocal: 'Casa' } });
+            setCenter({ ...coords, nomeLocal: 'Casa' });
+        } else if (step === 9) {
+            setResposta({
+                ...resposta,
+                referencias: [...(resposta.referencias || []), { ...coords, nomeLocal: r.nome || 'Referência' }],
+            });
+            setCenter({ ...coords, nomeLocal: r.nome });
+            toast.success(`Ponto de referência adicionado: ${r.nome}`);
+        } else if (step === 14) {
+            setResposta({ ...resposta, reuniao: { ...coords, nomeLocal: r.nome || 'Reunião' } });
+            setCenter({ ...coords, nomeLocal: r.nome });
+        }
     }
 
     const progressValue = (step / (steps)) * 100;
@@ -282,9 +327,9 @@ export default function FormCaminhos() {
             kmzUrls={kmzUrlsProp}
             wmsLayers={wmsLayers}
         />
-        {step === 7 && <SelecionarCasa canForward={!!resposta.partida} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
-        {step === 9 && <SelecionarPontosReferencia handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
-        {step === 14 && <SelecionarPontosReferencia finalizar onFinalizar={() => setConfirmOpen(true)} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
+        {step === 7 && <SelecionarCasa onEnderecoSelecionado={handleEnderecoSelecionado} canForward={!!resposta.partida} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
+        {step === 9 && <SelecionarPontosReferencia onEnderecoSelecionado={handleEnderecoSelecionado} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
+        {step === 14 && <SelecionarPontosReferencia onEnderecoSelecionado={handleEnderecoSelecionado} finalizar onFinalizar={() => setConfirmOpen(true)} handleStepBack={handleStepBack} handleStepForward={handleStepForward} mounted={mounted} progressValue={progressValue} currentTheme={currentTheme} />}
         {!mapSteps.includes(step) && <div className="relative h-full w-full bg-black/50 z-49">
             <Card className={`absolute bottom-0 md:top-1/2 md:left-1/2 md:transform md:-translate-x-1/2 md:-translate-y-1/2 w-full md:max-w-4xl shadow-md rounded-none md:rounded-2xl md:h-fit ${step > 0 ? 'h-full' : 'h-fit'} flex justify-between`}>
                 {step > 0 && <CardHeader className="flex gap-0">
@@ -310,7 +355,7 @@ export default function FormCaminhos() {
                 </CardHeader>}
                 <CardContent className={`space-y-4 max-sm:text-sm flex-1 ${step > 0 && 'overflow-auto'}`}>
                     {step === 0 && <Inicial />}
-                    {step === 1 && <Escola resposta={resposta} setResposta={setResposta} />}
+                    {step === 1 && <Escola escolas={escolas} resposta={resposta} setResposta={setResposta} />}
                     {step === 2 && <Alunos resposta={resposta} setResposta={setResposta} />}
                     {step === 3 && <TransporteIda resposta={resposta} setResposta={setResposta} />}
                     {step === 4 && <TransporteVolta resposta={resposta} setResposta={setResposta} />}
@@ -416,78 +461,12 @@ const Inicial = () => {
 }
 
 
-const escolas: MapMarker[] = [
-    {
-        id: '1',
-        coordinates: [-46.7321158, -23.6219854],
-        type: 'school',
-        title: 'CEI Anglicana Morumbi',
-        description: 'R. Dr. José Pedro de Carvalho Lima'
-    },
-    {
-        id: '2',
-        coordinates: [-46.7271946, -23.6221082],
-        type: 'school',
-        title: 'CEMEI Irapará',
-        description: 'R. Irapará, 160'
-    },
-    {
-        id: '3',
-        coordinates: [-46.7319, -23.6215163],
-        type: 'school',
-        title: 'CEMEI Morumbi',
-        description: 'R. Dr. José Pedro de Carvalho Lima, 150'
-    },
-    {
-        id: '4',
-        coordinates: [-46.7267886, -23.620817],
-        type: 'school',
-        title: 'EMEI Perimetral',
-        description: 'R. Independência, 701'
-    },
-    {
-        id: '5',
-        coordinates: [-46.7244036, -23.6182211],
-        type: 'school',
-        title: 'EMEF Perimetral',
-        description: 'Av. Hebe Camargo, 299'
-    },
-    {
-        id: '6',
-        coordinates: [-46.7298498, -23.6222412],
-        type: 'school',
-        title: 'EMEI CEU Paraisópolis',
-        description: 'R. Dr. José Augusto de Souza e Silva, S/N'
-    },
-    {
-        id: '7',
-        coordinates: [-46.73, -23.6228409],
-        type: 'school',
-        title: 'EMEF CEU Paraisópolis',
-        description: 'R. Dr. José Augusto de Souza e Silva, S/N'
-    },
-    {
-        id: '8',
-        coordinates: [-46.7312, -23.6223],
-        type: 'school',
-        title: 'EMEF Dom Veremundo Toth',
-        description: 'R. Dr. José Pedro de Carvalho Lima, 100'
-    },
-    {
-        id: '9',
-        coordinates: [-46.7286106, -23.6054007],
-        type: 'school',
-        title: 'CEI Indireto (Monsenhor Jonas Abib)',
-        description: 'R. Dr. José Pedro de Carvalho Lima'
-    },
-];
-
 interface StepsProps {
     resposta: Questionario;
     setResposta: (resposta: Questionario) => void;
 }
 
-const Escola = ({ resposta, setResposta }: StepsProps) => {
+const Escola = ({ resposta, setResposta, escolas }: StepsProps & { escolas: MapMarker[] }) => {
     return (
         <>
             <div className="flex flex-col space-y-1">
@@ -499,9 +478,10 @@ const Escola = ({ resposta, setResposta }: StepsProps) => {
                 </CardDescription>
             </div>
             <CardContent className="space-y-4 max-sm:text-sm p-0 overflow-hidden">
+                {escolas.length === 0 && <p className="text-muted-foreground">Carregando escolas...</p>}
                 <RadioGroup 
-                    value={resposta.escola.toString()} 
-                    onValueChange={(value) => setResposta({...resposta, escola: parseInt(value)})}
+                    value={String(resposta.escola)}
+                    onValueChange={(value) => setResposta({...resposta, escola: value})}
                 >
                     {escolas.map((escola) => (
                         <div className="flex items-center gap-3" key={escola.id}>
@@ -854,9 +834,10 @@ interface MapStepProps {
     finalizar?: boolean;
     onFinalizar?: () => void;
     canForward?: boolean;
+    onEnderecoSelecionado?: (r: ResultadoEndereco) => void;
 }
 
-const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, canForward }: MapStepProps ) => {
+const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, canForward, onEnderecoSelecionado }: MapStepProps ) => {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (
         <>
@@ -877,7 +858,8 @@ const SelecionarCasa = ({ handleStepBack, handleStepForward, mounted, currentThe
                         </CardTitle>
                         <CardDescription className="flex flex-col gap-4">
                             <Progress value={progressValue} className="w-full h-2 bg-gray-200 rounded-full" />
-                            <p className="text-foreground font-semibold">Clique Para Identificar no mapa onde fica sua casa</p>
+                            <p className="text-foreground font-semibold">Digite o endereço, use sua localização atual ou clique no mapa onde fica sua casa</p>
+                            {onEnderecoSelecionado && <BuscaEndereco permitirLocalizacaoAtual onSelecionar={onEnderecoSelecionado} />}
                         </CardDescription>
                     </CardHeader>
                 </Card>
@@ -899,14 +881,14 @@ const PontosReferencia = () => {
                     7
                 </CardTitle>
                 <CardDescription className="font-semibold text-foreground">
-                    Agora, a partir dos pontos de referências identificados no mapa, selecione os pontos de referência que você passa a caminho da escola. Alguns lugares já estão em destaque no mapa. Se você quiser selecionar um ponto não mapeado, basta clicar no lugar onde ele fica e nomeá-lo.
+                    Agora, a partir dos pontos de referências identificados no mapa, selecione os pontos de referência que você passa a caminho da escola. Alguns lugares já estão em destaque no mapa. Se você quiser selecionar um ponto não mapeado, basta clicar no lugar onde ele fica e nomeá-lo, ou digitar o endereço.
                 </CardDescription>
             </div>
         </>
     )
 }
 
-const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, finalizar, onFinalizar }: MapStepProps) => {
+const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted, currentTheme, progressValue, finalizar, onFinalizar, onEnderecoSelecionado }: MapStepProps) => {
     const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
     return (
         <>
@@ -927,7 +909,12 @@ const SelecionarPontosReferencia = ({ handleStepBack, handleStepForward, mounted
                         </CardTitle>
                         <CardDescription className="flex flex-col gap-4">
                             <Progress value={progressValue} className="w-full h-2 bg-gray-200 rounded-full" />
-                            <p className="text-foreground font-semibold">Clique para identificar os pontos de referência no caminho até a escola</p>
+                            <p className="text-foreground font-semibold">
+                                {finalizar
+                                    ? 'Digite o endereço ou clique no mapa no lugar onde as crianças se reúnem'
+                                    : 'Digite o endereço ou clique no mapa para identificar os pontos de referência no caminho até a escola'}
+                            </p>
+                            {onEnderecoSelecionado && <BuscaEndereco onSelecionar={onEnderecoSelecionado} placeholder={finalizar ? 'Digite o endereço do local' : 'Digite o endereço do ponto de referência'} />}
                         </CardDescription>
                     </CardHeader>
                 </Card>

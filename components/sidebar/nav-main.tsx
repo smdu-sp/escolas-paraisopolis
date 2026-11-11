@@ -1,6 +1,6 @@
 /** @format */
 
-import { ChevronRight, ClipboardList, House, LucideProps, Users } from 'lucide-react';
+import { ChevronRight, ClipboardList, House, LucideProps, School, Users } from 'lucide-react';
 
 import {
 	Collapsible,
@@ -61,6 +61,12 @@ export async function NavMain() {
 			icone: ClipboardList,
 			titulo: 'Cadastros',
 			url: '/respostas',
+			permissoes: ['DEV', 'ADM'],
+		},
+		{
+			icone: School,
+			titulo: 'Escolas',
+			url: '/escolas',
 			permissoes: ['DEV', 'ADM'],
 		},
 	];

@@ -23,6 +23,7 @@ export async function POST(
 ) {
     const data = await request.json();
     const {
+      escolaId: escolaIdInformado,
       escolaInfo,
       alunos,
       transporteIda,
@@ -37,6 +38,7 @@ export async function POST(
       temReuniao,
       usuarioIdOpcional,
     }: {
+      escolaId?: string;
       escolaInfo?: EscolaInfo;
       alunos: (string | Date)[];
       transporteIda: string[];
@@ -54,7 +56,11 @@ export async function POST(
 
     try {
       let escolaId: string | null = null;
-      if (escolaInfo && escolaInfo.nome) {
+      if (typeof escolaIdInformado === 'string' && escolaIdInformado) {
+        const escola = await db.escola.findUnique({ where: { id: escolaIdInformado } });
+        if (escola) escolaId = escola.id;
+      }
+      if (!escolaId && escolaInfo && escolaInfo.nome) {
         const existente = await db.escola.findFirst({ where: { nome: escolaInfo.nome } });
         if (existente) {
           escolaId = existente.id;
