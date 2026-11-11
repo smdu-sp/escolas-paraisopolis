@@ -4,14 +4,24 @@
 
 import dynamic from 'next/dynamic';
 import { useMemo, useState, useTransition } from 'react';
-import { Loader2, MapPin, Plus, RotateCcw, Save } from 'lucide-react';
+import { Loader2, MapPin, Plus, RotateCcw, Save, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { BuscaEndereco } from '@/components/busca-endereco';
-import { atualizarEscola, criarEscola } from '@/services/escola-actions';
+import { atualizarEscola, criarEscola, removerEscola } from '@/services/escola-actions';
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import type { IEscola } from '@/services/escola';
 
 const MapaEscolas = dynamic(() => import('./mapa-escolas'), { ssr: false });
@@ -22,11 +32,12 @@ interface EscolaEditavel {
 	endereco: string;
 	latitude: number;
 	longitude: number;
+	qtdRespostas: number;
 	nova?: boolean;
 }
 
 function paraEditavel(e: IEscola): EscolaEditavel {
-	return { id: e.id, nome: e.nome, endereco: e.endereco || '', latitude: e.latitude, longitude: e.longitude };
+	return { id: e.id, nome: e.nome, endereco: e.endereco || '', latitude: e.latitude, longitude: e.longitude, qtdRespostas: e.qtdRespostas };
 }
 
 function igual(a: EscolaEditavel, b: EscolaEditavel) {
@@ -43,6 +54,7 @@ export default function PainelEscolas({ escolasIniciais }: { escolasIniciais: IE
 	const [escolas, setEscolas] = useState<EscolaEditavel[]>(() => escolasIniciais.map(paraEditavel));
 	const [selecionadaId, setSelecionadaId] = useState<string | null>(null);
 	const [salvando, startTransition] = useTransition();
+	const [confirmarRemocao, setConfirmarRemocao] = useState(false);
 
 	const selecionada = escolas.find((e) => e.id === selecionadaId) || null;
 	const original = originais.find((e) => e.id === selecionadaId);
@@ -66,6 +78,7 @@ export default function PainelEscolas({ escolasIniciais }: { escolasIniciais: IE
 				endereco: '',
 				latitude: base ? base.latitude + 0.0005 : -23.6187664,
 				longitude: base ? base.longitude + 0.0005 : -46.7268192,
+				qtdRespostas: 0,
 				nova: true,
 			},
 		]);
@@ -91,21 +104,33 @@ export default function PainelEscolas({ escolasIniciais }: { escolasIniciais: IE
 			longitude: selecionada.longitude,
 		};
 		startTransition(async () => {
-			try {
-				if (selecionada.nova) {
-					const id = await criarEscola(dados);
-					const salva = { ...selecionada, ...dados, id, nova: undefined };
-					setEscolas((atual) => atual.map((e) => (e.id === selecionada.id ? salva : e)));
-					setOriginais((atual) => [...atual, salva]);
-					setSelecionadaId(id);
-				} else {
-					await atualizarEscola(selecionada.id, dados);
-					setOriginais((atual) => atual.map((e) => (e.id === selecionada.id ? { ...selecionada } : e)));
-				}
-				toast.success('Escola salva');
-			} catch (e) {
-				toast.error(e instanceof Error ? e.message : 'Erro ao salvar');
+			if (selecionada.nova) {
+				const resp = await criarEscola(dados);
+				if (!resp.ok) return void toast.error(resp.erro);
+				const salva = { ...selecionada, ...dados, id: resp.dados, nova: undefined };
+				setEscolas((atual) => atual.map((e) => (e.id === selecionada.id ? salva : e)));
+				setOriginais((atual) => [...atual, salva]);
+				setSelecionadaId(resp.dados);
+			} else {
+				const resp = await atualizarEscola(selecionada.id, dados);
+				if (!resp.ok) return void toast.error(resp.erro);
+				setOriginais((atual) => atual.map((e) => (e.id === selecionada.id ? { ...selecionada } : e)));
 			}
+			toast.success('Escola salva');
+		});
+	}
+
+	function remover() {
+		if (!selecionada || selecionada.nova) return;
+		const { id, nome } = selecionada;
+		startTransition(async () => {
+			const resp = await removerEscola(id);
+			setConfirmarRemocao(false);
+			if (!resp.ok) return void toast.error(resp.erro);
+			setEscolas((atual) => atual.filter((e) => e.id !== id));
+			setOriginais((atual) => atual.filter((e) => e.id !== id));
+			setSelecionadaId(null);
+			toast.success(`Escola "${nome}" removida`);
 		});
 	}
 
@@ -130,6 +155,11 @@ export default function PainelEscolas({ escolasIniciais }: { escolasIniciais: IE
 									<span className='flex-1'>
 										<span className='font-medium'>{e.nome}</span>
 										{e.endereco && <span className='block text-muted-foreground'>{e.endereco}</span>}
+										{!e.nova && (
+											<span className='block text-xs text-muted-foreground'>
+												{e.qtdRespostas} resposta{e.qtdRespostas === 1 ? '' : 's'}
+											</span>
+										)}
 									</span>
 									{alteradas.has(e.id) && <Badge variant='secondary'>não salvo</Badge>}
 								</button>
@@ -180,6 +210,23 @@ export default function PainelEscolas({ escolasIniciais }: { escolasIniciais: IE
 								/>
 							</div>
 						</div>
+						{!selecionada.nova && (
+							<div className='flex flex-col gap-1.5 border-t pt-3'>
+								<Button
+									variant='outline'
+									className='w-fit text-destructive hover:text-destructive'
+									disabled={salvando || selecionada.qtdRespostas > 0}
+									onClick={() => setConfirmarRemocao(true)}>
+									<Trash2 /> Remover escola
+								</Button>
+								{selecionada.qtdRespostas > 0 && (
+									<p className='text-xs text-muted-foreground'>
+										Não pode ser removida: tem {selecionada.qtdRespostas} resposta{selecionada.qtdRespostas > 1 ? 's' : ''} cadastrada
+										{selecionada.qtdRespostas > 1 ? 's' : ''}.
+									</p>
+								)}
+							</div>
+						)}
 						<div className='flex justify-between gap-2'>
 							<Button variant='outline' onClick={descartar} disabled={salvando || !alteradas.has(selecionada.id)}>
 								<RotateCcw /> {selecionada.nova ? 'Cancelar' : 'Desfazer'}
@@ -193,6 +240,28 @@ export default function PainelEscolas({ escolasIniciais }: { escolasIniciais: IE
 					<p className='text-sm text-muted-foreground'>Selecione uma escola na lista ou no mapa para conferir e editar a localização.</p>
 				)}
 			</div>
+			<AlertDialog open={confirmarRemocao} onOpenChange={(aberto) => !salvando && setConfirmarRemocao(aberto)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Remover escola?</AlertDialogTitle>
+						<AlertDialogDescription>
+							A escola <strong>{selecionada?.nome}</strong> deixará de aparecer no formulário e no mapa. Essa ação não pode ser desfeita.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel disabled={salvando}>Cancelar</AlertDialogCancel>
+						<AlertDialogAction
+							className='bg-destructive text-white hover:bg-destructive/90'
+							disabled={salvando}
+							onClick={(e) => {
+								e.preventDefault();
+								remover();
+							}}>
+							{salvando ? <Loader2 className='animate-spin' /> : <Trash2 />} Remover
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 			<div className='h-[60vh] lg:h-full order-1 lg:order-2'>
 				<MapaEscolas
 					escolas={escolas}
